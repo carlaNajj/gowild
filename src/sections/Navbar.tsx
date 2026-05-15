@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, Menu, X, Clock, Trash2, ArrowUpRight, Heart, Package, LogOut } from 'lucide-react';
 import { useAuth } from '@/auth';
-import { useStore, ALL_PRODUCTS } from '@/store';
+import { useStore } from '@/store';
+import { useSiteSettings, getBundleText } from '@/lib/settings-context';
 import { toast } from 'sonner';
 import {
   Sheet,
@@ -49,9 +50,12 @@ export function Navbar() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, isLoggedIn, logout } = useAuth();
-  const { cartCount, cart, cartTotal, cartSavings, updateQuantity, removeFromCart, toggleWishlist, wishlistCount, cartDrawerOpen, setCartDrawerOpen } = useStore();
+  const { cartCount, cart, cartTotal, cartSavings, updateQuantity, removeFromCart, toggleWishlist, wishlistCount, cartDrawerOpen, setCartDrawerOpen, products } = useStore();
+  const { settings } = useSiteSettings();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const activeProducts = products.filter(p => p.status !== 'inactive');
 
   const isAdmin = location.pathname.startsWith('/admin');
   if (isAdmin) return null;
@@ -65,7 +69,7 @@ export function Navbar() {
 
   // Filter products based on search query
   const searchResults = searchQuery.length >= 2
-    ? ALL_PRODUCTS.filter(p =>
+    ? activeProducts.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.category.toLowerCase().includes(searchQuery.toLowerCase())
       ).slice(0, 8)
@@ -107,11 +111,7 @@ export function Navbar() {
     }
   }, [searchOpen]);
 
-  const navLinks = [
-    { label: 'Shop', href: '/products' },
-    { label: 'Deals', href: '/deals' },
-    { label: 'About', href: '/about' },
-  ];
+  const navLinks = settings.navLinks.filter(l => l.visible);
 
   const handleSaveAndClose = useCallback(() => {
     addSearchQuery(searchQuery);
@@ -144,7 +144,7 @@ export function Navbar() {
     addSearchQuery(query);
     setSearchHistory(getSearchHistory());
     // Trigger search with this query
-    const results = ALL_PRODUCTS.filter(p =>
+    const results = activeProducts.filter(p =>
       p.name.toLowerCase().includes(query.toLowerCase()) ||
       p.category.toLowerCase().includes(query.toLowerCase())
     );
@@ -165,7 +165,7 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex-shrink-0">
-          <img src="/logo.png" alt="GoWild" className="h-10 w-auto" />
+          <img src={settings.logo} alt={settings.storeName} className="h-10 w-auto" />
         </Link>
 
         {/* Desktop Nav */}
@@ -411,9 +411,13 @@ export function Navbar() {
                   {/* Sticky summary at bottom */}
                   <div className="border-t bg-white px-5 sm:px-6 py-4 space-y-2 flex-shrink-0">
                     {cartSavings > 0 && (
-                      <div className="flex justify-between text-sm text-[#E8552A]">
-                        <span>Bundle Savings (3 pins for $10)</span>
-                        <span className="font-semibold">-${cartSavings.toFixed(2)}</span>
+                      <div className="space-y-1">
+                        {getBundleText(settings, 'navLabel') && (
+                          <div className="flex justify-between text-sm text-[#E8552A]">
+                            <span>{getBundleText(settings, 'navLabel')}</span>
+                            <span className="font-semibold">-${cartSavings.toFixed(2)}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                     <div className="flex justify-between text-sm">

@@ -1,42 +1,16 @@
 import { motion } from 'framer-motion';
-import { Mountain, TreePine, Compass, Heart, Leaf, Globe, Users, Award } from 'lucide-react';
-
-const values = [
-  {
-    icon: TreePine,
-    title: 'Nature First',
-    description: 'We believe the best experiences happen outdoors. Every product we design is inspired by the mountains, forests, and trails that shape our world.',
-  },
-  {
-    icon: Compass,
-    title: 'Explore Freely',
-    description: 'Adventure should not break the bank. We keep our gear affordable so everyone can explore without limits — from weekend hikers to weekend warriors.',
-  },
-  {
-    icon: Heart,
-    title: 'Made with Care',
-    description: 'Every enamel pin, sticker pack, and neck warmer is crafted with attention to detail. We inspect every item before it reaches your hands.',
-  },
-  {
-    icon: Leaf,
-    title: 'Sustainable Mindset',
-    description: 'We choose durable materials and minimal packaging. Our products are built to last, reducing waste and keeping trails clean.',
-  },
-];
-
-const stats = [
-  { label: 'Unique Pin Designs', value: '20+' },
-  { label: 'Sticker Packs Sold', value: '12K+' },
-  { label: 'Happy Adventurers', value: '50K+' },
-  { label: 'Countries Shipped', value: '30+' },
-];
+import { Mountain, Award, Globe, Users } from 'lucide-react';
+import { DynamicIcon } from '@/components/DynamicIcon';
+import { useSiteSettings } from '@/lib/settings-context';
 
 export function AboutPage() {
+  const { settings } = useSiteSettings();
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero */}
       <section className="relative h-[60vh] min-h-[400px] overflow-hidden flex items-center justify-center">
-        <img src="/hero.jpg" alt="Mountain landscape" className="absolute inset-0 w-full h-full object-cover" />
+        <img src={settings.aboutHero.image} alt="Mountain landscape" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/40 to-black/70" />
         <div className="relative z-10 text-center max-w-3xl mx-auto px-4">
           <motion.p
@@ -45,7 +19,7 @@ export function AboutPage() {
             transition={{ delay: 0.2, duration: 0.5 }}
             className="text-[#E8552A] uppercase tracking-[0.25em] text-sm font-semibold mb-4"
           >
-            Our Story
+            {settings.aboutHero.tagline}
           </motion.p>
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
@@ -53,7 +27,7 @@ export function AboutPage() {
             transition={{ delay: 0.3, duration: 0.6 }}
             className="font-heading text-4xl md:text-6xl font-extrabold text-white leading-tight tracking-tight"
           >
-            Born in the Mountains
+            {settings.aboutHero.title}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 30 }}
@@ -61,7 +35,7 @@ export function AboutPage() {
             transition={{ delay: 0.5, duration: 0.6 }}
             className="text-white/80 text-lg mt-4 max-w-xl mx-auto leading-relaxed"
           >
-            GoWild started with a simple idea: make outdoor gear that lets you express your love for adventure, without the heavy price tag.
+            {settings.aboutHero.subtitle}
           </motion.p>
         </div>
       </section>
@@ -79,10 +53,10 @@ export function AboutPage() {
               <Mountain className="w-8 h-8" />
             </div>
             <h2 className="font-heading text-3xl md:text-4xl font-bold text-[#1A1A1A] mb-4">
-              Our Mission
+              {settings.aboutMission.title}
             </h2>
             <p className="text-[#6B7280] text-lg leading-relaxed max-w-2xl mx-auto">
-              We exist to help people connect with the outdoors. Whether it is a pin on your backpack that sparks a conversation, a neck warmer on a cold summit, or a sticker on your water bottle that reminds you to plan your next trip — GoWild gear is made to inspire adventure.
+              {settings.aboutMission.text}
             </p>
           </motion.div>
         </div>
@@ -98,7 +72,7 @@ export function AboutPage() {
             <p className="text-[#6B7280] mt-3">Values that guide every product we create</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {values.map((v, i) => (
+            {settings.aboutValues.map((v, i) => (
               <motion.div
                 key={v.title}
                 initial={{ opacity: 0, y: 20 }}
@@ -108,13 +82,13 @@ export function AboutPage() {
                 className="bg-white rounded-xl p-6 shadow-sm"
               >
                 <div className="w-12 h-12 rounded-xl bg-[#1A5A6B]/10 flex items-center justify-center text-[#1A5A6B] mb-4">
-                  <v.icon className="w-6 h-6" />
+                  <DynamicIcon name={v.icon} className="w-6 h-6" />
                 </div>
                 <h3 className="font-heading font-semibold text-lg text-[#1A1A1A] mb-2">
                   {v.title}
                 </h3>
                 <p className="text-sm text-[#6B7280] leading-relaxed">
-                  {v.description}
+                  {v.text}
                 </p>
               </motion.div>
             ))}
@@ -126,7 +100,7 @@ export function AboutPage() {
       <section className="py-20 bg-[#1A5A6B]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {stats.map((s, i) => (
+            {settings.aboutStats.map((s, i) => (
               <motion.div
                 key={s.label}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -157,7 +131,7 @@ export function AboutPage() {
               transition={{ duration: 0.5 }}
             >
               <img
-                src="/cat-hats.jpg"
+                src={settings.aboutStory.image}
                 alt="GoWild team on a mountain"
                 className="rounded-2xl shadow-lg w-full aspect-[4/3] object-cover"
               />
@@ -169,14 +143,13 @@ export function AboutPage() {
               transition={{ duration: 0.5, delay: 0.1 }}
             >
               <h2 className="font-heading text-2xl md:text-3xl font-bold text-[#1A1A1A] mb-4">
-                Small Gear, Big Personality
+                {settings.aboutStory.title}
               </h2>
-              <p className="text-[#6B7280] leading-relaxed mb-4">
-                We started GoWild because we were tired of outdoor gear that cost a fortune and weighed a ton. We wanted simple, affordable essentials that let you express your outdoor identity — whether you are summiting a peak or just dreaming about your next trip from your desk.
-              </p>
-              <p className="text-[#6B7280] leading-relaxed mb-4">
-                Our pins and stickers are designed by outdoor enthusiasts, for outdoor enthusiasts. Our neck warmers are tested on real trails in real cold. And our picnic mats have been laid out on grass, sand, and rock from Colorado to California.
-              </p>
+              {settings.aboutStory.paragraphs.map((para, i) => (
+                <p key={i} className="text-[#6B7280] leading-relaxed mb-4">
+                  {para}
+                </p>
+              ))}
               <div className="flex items-center gap-4 mt-6">
                 <div className="flex items-center gap-2">
                   <Award className="w-5 h-5 text-[#E8552A]" />
@@ -202,11 +175,11 @@ export function AboutPage() {
             transition={{ duration: 0.5 }}
           >
             <Users className="w-12 h-12 text-[#1A5A6B] mx-auto mb-4" />
-            <h2 className="font-heading text-3xl font-bold text-[#1A1A1A] mb-4">
-              Join the Wild Community
+            <h2 className="font-heading text-2xl md:text-3xl font-bold text-[#1A1A1A] mb-4">
+              {settings.aboutCta.title}
             </h2>
             <p className="text-[#6B7280] leading-relaxed mb-8 max-w-xl mx-auto">
-              Follow us on social media to see how our community rocks GoWild gear. Tag us with #GoWildOutdoors and your post might be featured.
+              {settings.aboutCta.subtitle}
             </p>
             <div className="flex items-center justify-center gap-3">
               {['Instagram', 'TikTok', 'YouTube'].map((social) => (

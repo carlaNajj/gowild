@@ -1,45 +1,16 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Star, Heart, Tag, Percent, ChevronRight, Pin } from 'lucide-react';
-import { ALL_PRODUCTS, PIN_PRODUCTS, useStore } from '@/store';
-
-const deals = [
-  {
-    title: 'Pick Any 3 Pins for $10',
-    subtitle: 'Mix & match from 20 enamel pin designs',
-    savings: 'Save up to 40%',
-    badge: 'BUNDLE',
-    color: 'from-[#1A5A6B] to-[#1A8DA3]',
-    link: '/products#pins',
-    icon: Pin,
-    cta: 'Build Your Bundle',
-  },
-  {
-    title: 'Picnic Mat Sale',
-    subtitle: 'Waterproof picnic mat now $34.99',
-    savings: 'Was $44.99',
-    badge: 'SALE',
-    color: 'from-[#E8552A] to-[#C4451D]',
-    link: '/product/mat1',
-    icon: Tag,
-    cta: 'Shop Now',
-  },
-  {
-    title: 'Free Shipping Over $50',
-    subtitle: 'All orders ship free when you spend $50+',
-    savings: 'Save $5.99',
-    badge: 'SHIPPING',
-    color: 'from-[#52796F] to-[#3d5c54]',
-    link: '/products',
-    icon: Percent,
-    cta: 'Start Shopping',
-  },
-];
-
-const saleProducts = ALL_PRODUCTS.filter(p => p.originalPrice || p.isPin).slice(0, 8);
+import { Star, Heart, ChevronRight } from 'lucide-react';
+import { DynamicIcon } from '@/components/DynamicIcon';
+import { useStore, PIN_PRODUCTS } from '@/store';
+import { useSiteSettings, getBundleText } from '@/lib/settings-context';
 
 export function DealsPage() {
-  const { toggleWishlist, wishlist } = useStore();
+  const { settings } = useSiteSettings();
+  const { toggleWishlist, wishlist, products } = useStore();
+  const visiblePromotions = settings.promotions.filter(p => p.visible);
+  const activeProducts = products.filter(p => p.status !== 'inactive');
+  const saleProducts = activeProducts.filter(p => p.originalPrice || p.isPin).slice(0, 8);
 
   return (
     <div className="min-h-screen bg-white">
@@ -51,7 +22,7 @@ export function DealsPage() {
               Limited Time Offers
             </span>
             <h1 className="font-heading text-4xl md:text-5xl font-bold text-white">
-              GoWild Deals
+              {settings.storeName} Deals
             </h1>
             <p className="text-white/80 mt-3 text-lg max-w-xl mx-auto">
               Bundle your pins, grab discounted gear, and save on every adventure.
@@ -63,22 +34,22 @@ export function DealsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Deal Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-          {deals.map((deal, i) => (
+          {visiblePromotions.map((deal, i) => (
             <motion.div
-              key={deal.title}
+              key={deal.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1, duration: 0.4 }}
             >
               <Link
                 to={deal.link}
-                className={`block bg-gradient-to-br ${deal.color} rounded-2xl p-6 text-white h-full hover:shadow-xl transition-all hover:-translate-y-1`}
+                className={`block bg-gradient-to-br ${deal.gradient} rounded-2xl p-6 text-white h-full hover:shadow-xl transition-all hover:-translate-y-1`}
               >
                 <div className="flex items-start justify-between mb-4">
                   <span className="bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">
                     {deal.badge}
                   </span>
-                  <deal.icon className="w-6 h-6 text-white/60" />
+                  <DynamicIcon name={deal.icon} className="w-6 h-6 text-white/60" />
                 </div>
                 <h3 className="font-heading text-xl font-bold mb-2">{deal.title}</h3>
                 <p className="text-white/80 text-sm mb-1">{deal.subtitle}</p>
@@ -95,8 +66,8 @@ export function DealsPage() {
         <section className="mb-16">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="font-heading text-2xl font-bold text-[#1A1A1A]">Pin Bundle: 3 for $10</h2>
-              <p className="text-sm text-[#6B7280] mt-1">Our most popular deal. Mix any designs you love.</p>
+              <h2 className="font-heading text-xl md:text-2xl font-bold text-[#1A1A1A]">{getBundleText(settings, 'title')}</h2>
+              <p className="text-sm text-[#6B7280] mt-1">{getBundleText(settings, 'subtitle')}</p>
             </div>
             <Link to="/products#pins" className="text-[#1A5A6B] font-medium text-sm hover:underline flex items-center gap-1">
               Shop All Pins <ChevronRight className="w-4 h-4" />
@@ -133,7 +104,7 @@ export function DealsPage() {
         <section>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="font-heading text-2xl font-bold text-[#1A1A1A]">On Sale Now</h2>
+              <h2 className="font-heading text-xl md:text-2xl font-bold text-[#1A1A1A]">On Sale Now</h2>
               <p className="text-sm text-[#6B7280] mt-1">Limited-time price drops on fan favorites.</p>
             </div>
           </div>

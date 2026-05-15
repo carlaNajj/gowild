@@ -3,12 +3,14 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingBag, ArrowLeft, Star, Heart, Minus, Plus, Eye } from 'lucide-react';
 import { PIN_PRODUCTS, useStore, calculateBundlePrice } from '@/store';
+import { useSiteSettings, getBundleText } from '@/lib/settings-context';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 const PIN_IMAGES = ['/pin-mountain.jpg', '/pin-campfire.jpg', '/pin-compass.jpg', '/pin-bear.jpg', '/pin-tent.jpg', '/pin-hiker.jpg', '/pin-canoe.jpg', '/pin-deer.jpg'];
 
 export function PinsBundlePage() {
+  const { settings } = useSiteSettings();
   const [searchParams] = useSearchParams();
   const { addMultipleToCart, toggleWishlist, isInWishlist, setCartDrawerOpen } = useStore();
 
@@ -106,7 +108,7 @@ export function PinsBundlePage() {
             <ArrowLeft className="w-4 h-4" /> Back to Shop
           </Link>
           <h1 className="font-heading text-3xl md:text-4xl font-bold text-white">Build Your Pin Bundle</h1>
-          <p className="text-white/80 mt-2">Pick any 3 pins for $10. Mix and match your favorites.</p>
+          <p className="text-white/80 mt-2">{getBundleText(settings, 'title')}. {getBundleText(settings, 'subtitle')}</p>
         </div>
       </div>
 

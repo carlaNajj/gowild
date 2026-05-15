@@ -3,6 +3,7 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/auth';
 import { StoreProvider } from '@/store';
+import { SettingsProvider } from '@/lib/settings-context';
 import { Navbar } from '@/sections/Navbar';
 import { Footer } from '@/sections/Footer';
 import { HomePage } from '@/pages/HomePage';
@@ -13,7 +14,9 @@ import { CheckoutPage } from '@/pages/CheckoutPage';
 import { ConfirmationPage } from '@/pages/ConfirmationPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { AdminPage } from '@/pages/AdminPage';
+import { AdminLoginPage } from '@/pages/AdminLoginPage';
 import { LoginPage } from '@/pages/LoginPage';
+import { AdminGuard } from '@/components/admin/AdminGuard';
 import { DealsPage } from '@/pages/DealsPage';
 import { AboutPage } from '@/pages/AboutPage';
 import { MyAccountPage } from '@/pages/MyAccountPage';
@@ -49,8 +52,9 @@ function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
-      <StoreProvider>
-        <Layout>
+      <SettingsProvider>
+        <StoreProvider>
+          <Layout>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/products" element={<ProductsPage />} />
@@ -65,10 +69,16 @@ export default function App() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/wishlist" element={<WishlistPage />} />
             <Route path="/pins-bundle" element={<PinsBundlePage />} />
-            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/admin/login" element={<AdminLoginPage />} />
+            <Route path="/admin" element={
+              <AdminGuard>
+                <AdminPage />
+              </AdminGuard>
+            } />
           </Routes>
-        </Layout>
-      </StoreProvider>
+          </Layout>
+        </StoreProvider>
+      </SettingsProvider>
     </AuthProvider>
   );
 }

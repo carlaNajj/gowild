@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import {
   PIN_PRODUCTS, STICKER_PRODUCTS, NECK_WARMER_PRODUCTS,
-  PICNIC_MAT_PRODUCT, ACCESSORY_PRODUCTS, ALL_PRODUCTS, useStore, calculateBundlePrice
+  PICNIC_MAT_PRODUCT, ACCESSORY_PRODUCTS, useStore, calculateBundlePrice
 } from '@/store';
 import type { Product } from '@/store';
 import { Button } from '@/components/ui/button';
@@ -424,13 +424,14 @@ function SearchSuggestions({
 }: {
   query: string; onSelect: (q: string) => void;
 }) {
+  const { products } = useStore();
   const suggestions = useMemo(() => {
     if (!query.trim() || query.trim().length < 2) return [];
     const q = query.toLowerCase().trim();
     const matches: { label: string; type: 'product' | 'category' | 'synonym' }[] = [];
 
     // Product name matches
-    ALL_PRODUCTS.forEach(p => {
+    products.filter(p => p.status !== 'inactive').forEach(p => {
       if (p.name.toLowerCase().includes(q)) {
         matches.push({ label: p.name, type: 'product' });
       }
@@ -496,7 +497,7 @@ function MobileFilterSheet({
         <>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/50 z-50" />
           <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 350 }}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto">
+            className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
             <div className="flex justify-center pt-3 pb-1" onClick={onClose}><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
             <div className="px-5 pb-8">
               <div className="flex items-center justify-between mb-5">
@@ -594,7 +595,9 @@ function MobileFilterSheet({
 /* ------------------------------------------------------------------ */
 export function ProductsPage() {
   const navigate = useNavigate();
-  const { addMultipleToCart } = useStore();
+  const { addMultipleToCart, products } = useStore();
+
+  const activeProducts = useMemo(() => products.filter(p => p.status !== 'inactive'), [products]);
   const [urlSearchParams] = useSearchParams();
   const searchParams = urlSearchParams;
   const [selectedPins, setSelectedPins] = useState<Map<string, number>>(() => {
@@ -619,6 +622,7 @@ export function ProductsPage() {
   const [sortBy, setSortBy] = useState('popular');
   const [showDesktopFilters, setShowDesktopFilters] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showMobileCategories, setShowMobileCategories] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   // FR-SRC-04: Search state
@@ -642,8 +646,8 @@ export function ProductsPage() {
 
   // Filtered products with search + all filters
   const { products: filteredProducts, corrected } = useMemo(() =>
-    filterAndSortProducts(ALL_PRODUCTS, activeCategory, effectivePriceRange, sortBy, searchQuery, minRating, inStockOnly),
-    [activeCategory, effectivePriceRange, sortBy, searchQuery, minRating, inStockOnly]
+    filterAndSortProducts(activeProducts, activeCategory, effectivePriceRange, sortBy, searchQuery, minRating, inStockOnly),
+    [activeProducts, activeCategory, effectivePriceRange, sortBy, searchQuery, minRating, inStockOnly]
   );
 
   const hasSearchResults = searchQuery.trim() && filteredProducts.length > 0;
@@ -652,7 +656,7 @@ export function ProductsPage() {
   // Recommended products for no-results fallback
   const recommendedProducts = useMemo(() => {
     if (!hasNoResults) return [];
-    return ALL_PRODUCTS
+    return activeProducts
       .filter(p => p.rating >= 4.5)
       .sort((a, b) => b.reviewCount - a.reviewCount)
       .slice(0, 4);
@@ -748,7 +752,7 @@ export function ProductsPage() {
       </div>
 
       {/* Desktop: Sticky filter toolbar */}
-      <div className="hidden md:block sticky top-[72px] z-40 bg-white border-b shadow-sm">
+      <div className="hidden lg:block sticky top-[72px] z-40 bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 overflow-x-auto flex-1 no-scrollbar">
@@ -838,24 +842,43 @@ export function ProductsPage() {
         </div>
       </div>
 
-      {/* Mobile: Horizontal category chips + filter button */}
-      <div className="md:hidden sticky top-[72px] z-40 bg-white border-b shadow-sm">
+      {/* Mobile: Collapsible category selector + filter button */}
+      <div className="lg:hidden sticky top-[72px] z-40 bg-white border-b shadow-sm">
         <div className="px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto flex-1 no-scrollbar snap-x snap-mandatory py-0.5">
-              {ALL_CATEGORIES.map(cat => (
-                <button key={cat} onClick={() => setActiveCategory(cat)}
-                  className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 snap-start min-h-[36px] flex items-center ${activeCategory === cat ? 'bg-[#1A5A6B] text-white shadow-sm' : 'bg-gray-100 text-gray-600 active:bg-gray-200'}`}>
-                  {cat}
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={() => setShowMobileCategories(v => !v)}
+              className="flex items-center justify-between gap-2 flex-1 px-3 py-2 rounded-full text-sm font-medium border border-gray-200 bg-white text-gray-700 active:bg-gray-50 transition-all min-h-[36px]"
+            >
+              <span className="truncate">{activeCategory}</span>
+              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showMobileCategories ? 'rotate-180' : ''}`} />
+            </button>
             <button onClick={() => setShowMobileFilters(true)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium border flex-shrink-0 transition-all min-h-[36px] ${activeFilterCount > 0 ? 'bg-[#1A5A6B] text-white border-[#1A5A6B] shadow-sm' : 'bg-white text-gray-700 border-gray-200 active:bg-gray-50'}`}>
               <SlidersHorizontal className="w-3.5 h-3.5" />
               {activeFilterCount > 0 ? `(${activeFilterCount})` : 'Filters'}
             </button>
           </div>
+          <AnimatePresence>
+            {showMobileCategories && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="pt-3 pb-1 grid grid-cols-2 gap-2">
+                  {ALL_CATEGORIES.map(cat => (
+                    <button key={cat} onClick={() => { setActiveCategory(cat); setShowMobileCategories(false); }}
+                      className={`px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all text-center ${activeCategory === cat ? 'bg-[#1A5A6B] text-white shadow-sm' : 'bg-gray-100 text-gray-600 active:bg-gray-200'}`}>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -938,7 +961,7 @@ export function ProductsPage() {
                 <MapIcon className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="font-heading text-2xl font-bold text-[#1A1A1A]">Outdoor Pins</h2>
+                <h2 className="font-heading text-xl md:text-2xl font-bold text-[#1A1A1A]">Outdoor Pins</h2>
                 <p className="text-sm text-[#6B7280]">{PIN_PRODUCTS.length} unique designs</p>
               </div>
             </div>
@@ -959,7 +982,7 @@ export function ProductsPage() {
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-[#1A5A6B]/10 flex items-center justify-center text-[#1A5A6B]"><MapIcon className="w-5 h-5" /></div>
                 <div>
-                  <h2 className="font-heading text-2xl font-bold text-[#1A1A1A]">Outdoor Pins</h2>
+                  <h2 className="font-heading text-xl md:text-2xl font-bold text-[#1A1A1A]">Outdoor Pins</h2>
                   <p className="text-sm text-[#6B7280]">{PIN_PRODUCTS.length} unique designs</p>
                 </div>
               </div>
@@ -976,7 +999,7 @@ export function ProductsPage() {
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-xl bg-[#1A5A6B]/10 flex items-center justify-center text-[#1A5A6B]"><cat.icon className="w-5 h-5" /></div>
                   <div>
-                    <h2 className="font-heading text-2xl font-bold text-[#1A1A1A]">{cat.label}</h2>
+                    <h2 className="font-heading text-xl md:text-2xl font-bold text-[#1A1A1A]">{cat.label}</h2>
                     <p className="text-sm text-[#6B7280]">{cat.subtitle}</p>
                   </div>
                 </div>
@@ -1027,7 +1050,7 @@ export function ProductsPage() {
       <AnimatePresence>
         {pinTotalQty > 0 && !showBundleModal && (
           <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-40 bg-[#1A5A6B] text-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
+            className="fixed bottom-0 left-0 right-0 z-40 bg-[#1A5A6B] text-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.2)] pb-[env(safe-area-inset-bottom)]">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm">{pinTotalQty}</div>
@@ -1055,7 +1078,7 @@ export function ProductsPage() {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowBundleModal(false)} className="fixed inset-0 bg-black/50 z-50" />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 350 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto">
+              className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
               <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
               <div className="px-5 pb-8 sm:px-8">
                 <div className="flex items-center justify-between mb-5">

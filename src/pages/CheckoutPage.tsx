@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { CreditCard, Truck, CheckCircle, Shield, User, ArrowRight, Mail, Eye, EyeOff, ChevronDown, MapPin, Phone, Edit3, Save, Tag } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { useStore } from '@/store';
+import { useSiteSettings } from '@/lib/settings-context';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -20,8 +21,9 @@ const SHIPPING_METHODS_LB = [
 
 export function CheckoutPage() {
   const navigate = useNavigate();
+  const { settings, updateSettings } = useSiteSettings();
   const { user, isLoggedIn, guestInfo, setGuestInfo, login, updateProfile } = useAuth();
-  const { cart, cartTotal, cartSavings, clearCart } = useStore();
+  const { cart, cartTotal, cartSavings, clearCart, addOrder } = useStore();
   const [step, setStep] = useState(1);
   const [authMode, setAuthMode] = useState<'choice' | 'login' | 'signup' | 'guest'>('choice');
   const [shippingMethod, setShippingMethod] = useState('standard');
@@ -58,6 +60,7 @@ export function CheckoutPage() {
   const [cardExpiry, setCardExpiry] = useState('12/28');
   const [cardCvv, setCardCvv] = useState('123');
   const [cardName, setCardName] = useState(user?.name || '');
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>(settings.paymentMethods.card ? 'card' : 'cod');
 
   // FR-CART-08 & FR-CART-10: Shipping info display + inline editing
   const [editShippingMode, setEditShippingMode] = useState(false);
@@ -77,16 +80,35 @@ export function CheckoutPage() {
   function handleApplyPromo() {
     const trimmed = promoInput.trim().toUpperCase();
     if (!trimmed) return;
-    const promos: Record<string, { discount: number; type: 'percent' | 'fixed' }> = {
-      'WILD10': { discount: 10, type: 'percent' },
-      'GOWILD5': { discount: 5, type: 'fixed' },
-      'PINBUDDY': { discount: 2, type: 'fixed' },
-      'SUMMER20': { discount: 20, type: 'percent' },
-    };
-    const found = promos[trimmed];
+    const found = settings.promoCodes.find(p => p.active && p.code.toUpperCase() === trimmed);
     if (found) {
-      setAppliedPromo({ code: trimmed, ...found });
-      toast.success(`Promo code "${trimmed}" applied — ${found.type === 'percent' ? found.discount + '%' : '$' + found.discount.toFixed(2)} off`);
+      if (found.expiresAt && new Date(found.expiresAt) < new Date()) {
+        toast.error('This promo code has expired');
+        setAppliedPromo(null);
+        return;
+      }
+      if (found.usageLimit !== undefined && found.usedCount >= found.usageLimit) {
+        toast.error('This promo code has reached its usage limit');
+        setAppliedPromo(null);
+        return;
+      }
+      if (found.minOrder && subtotal < found.minOrder) {
+        toast.error(`Minimum order of $${found.minOrder.toFixed(2)} required`);
+        setAppliedPromo(null);
+        return;
+      }
+      // Check product-specific restrictions
+      if (found.productIds && found.productIds.length > 0) {
+        const cartProductIds = cart.map(item => item.product.id);
+        const hasEligibleProduct = cartProductIds.some(id => found.productIds!.includes(id));
+        if (!hasEligibleProduct) {
+          toast.error('This promo code is not valid for the items in your cart');
+          setAppliedPromo(null);
+          return;
+        }
+      }
+      setAppliedPromo({ code: trimmed, discount: found.value, type: found.type });
+      toast.success(`Promo code "${trimmed}" applied — ${found.type === 'percent' ? found.value + '%' : '$' + found.value.toFixed(2)} off`);
     } else {
       toast.error('Invalid promo code');
       setAppliedPromo(null);
@@ -169,9 +191,35 @@ export function CheckoutPage() {
       tax: tax,
       promoDiscount: promoDiscount,
       grandTotal: total,
+      paymentMethod: paymentMethod,
       orderDate: new Date().toISOString(),
     };
     localStorage.setItem('gowild_last_order', JSON.stringify(orderData));
+
+    // Add order to admin panel
+    const shippingAddress = `${editStreet}, ${editCity}, ${editState} ${editZip}`;
+    const newOrder = {
+      id: `GW-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      date: new Date().toISOString().split('T')[0],
+      items: cart.map(item => ({ product: item.product, quantity: item.quantity, color: item.color, size: item.size })),
+      total: total,
+      status: 'pending' as const,
+      shippingAddress,
+      customerName: editName,
+      customerEmail: editEmail,
+    };
+    // Increment promo code usage if applied
+    if (appliedPromo) {
+      const promoIndex = settings.promoCodes.findIndex(p => p.code.toUpperCase() === appliedPromo.code.toUpperCase());
+      if (promoIndex !== -1) {
+        const updated = [...settings.promoCodes];
+        updated[promoIndex] = { ...updated[promoIndex], usedCount: updated[promoIndex].usedCount + 1 };
+        updateSettings({ promoCodes: updated });
+      }
+    }
+
+    addOrder(newOrder);
+
     clearCart();
     toast.success('Order placed successfully!');
     navigate('/confirmation');
@@ -207,7 +255,7 @@ export function CheckoutPage() {
   return (
     <div className="min-h-screen bg-[#F5F0E8]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="font-heading text-3xl font-bold text-[#1A1A1A] text-center mb-8">Checkout</h1>
+        <h1 className="font-heading text-2xl md:text-3xl font-bold text-[#1A1A1A] text-center mb-8">Checkout</h1>
 
         {/* Progress Steps */}
         <div className="flex items-center justify-center mb-10">
@@ -651,32 +699,80 @@ export function CheckoutPage() {
                   <h2 className="font-heading text-lg font-bold mb-6">Payment</h2>
 
                   <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Card Number</label>
-                        <div className="relative">
-                          <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                          <input type="text" value={cardNum} onChange={e => setCardNum(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 font-mono text-sm" />
-                        </div>
+                    {/* Payment method selection */}
+                    {(settings.paymentMethods.card || settings.paymentMethods.cod) && (
+                      <div className="space-y-2">
+                        {settings.paymentMethods.card && (
+                          <label className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${paymentMethod === 'card' ? 'border-[#1A5A6B] bg-[#1A5A6B]/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                            <input
+                              type="radio"
+                              name="payment"
+                              checked={paymentMethod === 'card'}
+                              onChange={() => setPaymentMethod('card')}
+                              className="w-4 h-4 accent-[#1A5A6B]"
+                            />
+                            <CreditCard className="w-5 h-5 text-[#1A5A6B]" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">Credit / Debit Card</p>
+                              <p className="text-xs text-gray-500">Pay securely with your card</p>
+                            </div>
+                          </label>
+                        )}
+                        {settings.paymentMethods.cod && (
+                          <label className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${paymentMethod === 'cod' ? 'border-[#1A5A6B] bg-[#1A5A6B]/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                            <input
+                              type="radio"
+                              name="payment"
+                              checked={paymentMethod === 'cod'}
+                              onChange={() => setPaymentMethod('cod')}
+                              className="w-4 h-4 accent-[#1A5A6B]"
+                            />
+                            <Truck className="w-5 h-5 text-[#1A5A6B]" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">Cash on Delivery</p>
+                              <p className="text-xs text-gray-500">Pay when you receive your order</p>
+                            </div>
+                          </label>
+                        )}
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                    )}
+
+                    {paymentMethod === 'card' && (
+                      <div className="space-y-4 pt-2">
                         <div>
-                          <label className="text-sm font-medium mb-1 block">Expiry</label>
-                          <input type="text" value={cardExpiry} onChange={e => setCardExpiry(e.target.value)} className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 text-sm" />
+                          <label className="text-sm font-medium mb-1 block">Card Number</label>
+                          <div className="relative">
+                            <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <input type="text" value={cardNum} onChange={e => setCardNum(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 font-mono text-sm" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium mb-1 block">Expiry</label>
+                            <input type="text" value={cardExpiry} onChange={e => setCardExpiry(e.target.value)} className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-1 block">CVV</label>
+                            <input type="text" value={cardCvv} onChange={e => setCardCvv(e.target.value)} className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 text-sm" />
+                          </div>
                         </div>
                         <div>
-                          <label className="text-sm font-medium mb-1 block">CVV</label>
-                          <input type="text" value={cardCvv} onChange={e => setCardCvv(e.target.value)} className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 text-sm" />
+                          <label className="text-sm font-medium mb-1 block">Name on Card</label>
+                          <input type="text" value={cardName} onChange={e => setCardName(e.target.value)} className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 text-sm" />
                         </div>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input type="checkbox" className="w-4 h-4 accent-[#1A5A6B]" defaultChecked={isLoggedIn} />
+                          Save card for future purchases
+                        </label>
                       </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Name on Card</label>
-                        <input type="text" value={cardName} onChange={e => setCardName(e.target.value)} className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 text-sm" />
+                    )}
+
+                    {paymentMethod === 'cod' && (
+                      <div className="p-4 bg-amber-50 rounded-lg text-sm text-amber-800">
+                        You will pay <strong>${total.toFixed(2)}</strong> in cash when your order is delivered.
                       </div>
-                      <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="checkbox" className="w-4 h-4 accent-[#1A5A6B]" defaultChecked={isLoggedIn} />
-                        Save card for future purchases
-                      </label>
-                    </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-3 mt-4">
                   <Button variant="outline" onClick={() => setStep(2)} className="flex-1 rounded-full py-6">Back</Button>
@@ -712,7 +808,11 @@ export function CheckoutPage() {
                         <h3 className="font-medium text-sm">Payment</h3>
                         <button onClick={() => setStep(3)} className="text-xs text-[#1A5A6B] hover:underline">Change</button>
                       </div>
-                      <p className="text-sm text-[#6B7280]">Visa ending in {cardNum.slice(-4)}</p>
+                      {paymentMethod === 'cod' ? (
+                        <p className="text-sm text-[#6B7280]">Cash on Delivery</p>
+                      ) : (
+                        <p className="text-sm text-[#6B7280]">Visa ending in {cardNum.slice(-4)}</p>
+                      )}
                     </div>
                     <div>
                       <h3 className="font-medium text-sm mb-3">Items ({cart.reduce((s, i) => s + i.quantity, 0)})</h3>

@@ -2,13 +2,15 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Minus, Plus, X, ShoppingCart, ArrowRight, Tag, Pin } from 'lucide-react';
 import { useStore } from '@/store';
+import { useSiteSettings, getBundleText } from '@/lib/settings-context';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
 export function CartPage() {
-  const { cart, cartTotal, cartSavings, updateQuantity, removeFromCart } = useStore();
+  const { settings } = useSiteSettings();
+  const { cart, cartTotal, cartSavings, customBundleDetails, updateQuantity, removeFromCart } = useStore();
   const [promoCode, setPromoCode] = useState('');
-  const shipping = cartTotal > 50 ? 0 : 5.99;
+  const shipping = cartTotal >= settings.freeShippingThreshold ? 0 : settings.standardShippingRate;
   const tax = cartTotal * 0.08;
   const total = cartTotal + shipping + tax;
 
@@ -38,15 +40,25 @@ export function CartPage() {
                 <Link to="/products" className="text-sm text-[#1A5A6B] font-medium hover:underline">Continue Shopping</Link>
               </div>
 
-              {/* Bundle savings banner */}
-              {bundleSavings > 0 && (
+              {/* Pin bundle savings banner */}
+              {bundleSavings > 0 && customBundleDetails.length === 0 && (
                 <div className="mb-4 bg-[#52796F]/10 border border-[#52796F]/20 rounded-lg p-3 flex items-center gap-3">
                   <Pin className="w-5 h-5 text-[#52796F]" />
                   <p className="text-sm text-[#52796F] font-medium">
-                    You saved ${bundleSavings.toFixed(2)} with pin bundle pricing! 3 pins for $10 deal applied.
+                    {getBundleText(settings, 'cartBannerText').replace('{savings}', '$' + bundleSavings.toFixed(2))}
                   </p>
                 </div>
               )}
+
+              {/* Custom bundle savings banners */}
+              {customBundleDetails.map(detail => (
+                <div key={detail.bundleId} className="mb-4 bg-[#1A5A6B]/10 border border-[#1A5A6B]/20 rounded-lg p-3 flex items-center gap-3">
+                  <Tag className="w-5 h-5 text-[#1A5A6B]" />
+                  <p className="text-sm text-[#1A5A6B] font-medium">
+                    {detail.cartBannerText.replace('{savings}', '$' + detail.savings.toFixed(2))}
+                  </p>
+                </div>
+              ))}
 
               <div className="space-y-4">
                 {cart.map((item, i) => (

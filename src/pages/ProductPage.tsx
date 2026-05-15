@@ -3,9 +3,10 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Star, Heart, ChevronDown, Minus, Plus, Truck, Shield, RefreshCw, Check, ShoppingBag,
-  X, Camera, ImageIcon, ArrowLeft
+  X, Camera, ImageIcon, ArrowLeft, Tag
 } from 'lucide-react';
-import { ALL_PRODUCTS, useStore, getProductImages } from '@/store';
+import { useStore, getProductImages } from '@/store';
+import { useSiteSettings } from '@/lib/settings-context';
 import type { Product } from '@/store';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -73,7 +74,7 @@ function WriteReviewForm({ product, onSubmitted }: { product: Product; onSubmitt
       date: new Date().toISOString().split('T')[0],
     });
 
-    toast.success('Review submitted successfully!');
+    toast.success('Review submitted! It will appear after approval.');
     setRating(0);
     setText('');
     setUserName('');
@@ -159,11 +160,13 @@ function WriteReviewForm({ product, onSubmitted }: { product: Product; onSubmitt
 /*  Main Product Page                                                   */
 /* ------------------------------------------------------------------ */
 export function ProductPage() {
+  const { settings } = useSiteSettings();
   const { id } = useParams<{ id: string }>();
   const {
     addToCart, addMultipleToCart, toggleWishlist, isInWishlist, getProductReviews
   } = useStore();
-  const product = ALL_PRODUCTS.find(p => p.id === id);
+  const { getProductById, products } = useStore();
+  const product = getProductById(id || '');
 
   // Read bundle query params for back navigation
   const [searchParams] = useSearchParams();
@@ -189,11 +192,12 @@ export function ProductPage() {
     }
   }, [product?.id]);
 
-  if (!product) {
+  if (!product || product.status === 'inactive') {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-[#1A1A1A]">Product not found</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#1A1A1A]">Product not found</h1>
+          <p className="text-[#6B7280] mt-2">This product is no longer available.</p>
           <Link to="/products" className="text-[#1A5A6B] mt-4 inline-block hover:underline">Back to Shop</Link>
         </div>
       </div>
@@ -216,7 +220,7 @@ export function ProductPage() {
   const mainImage = images[selectedImage] || product.image;
 
   // Related products
-  const relatedProducts = ALL_PRODUCTS.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const relatedProducts = products.filter(p => p.category === product.category && p.id !== product.id && p.status !== 'inactive').slice(0, 4);
 
   // Toggle color selection (multi-select)
   function toggleColor(color: string) {
@@ -363,7 +367,7 @@ export function ProductPage() {
             </div>
 
             <div className="flex items-baseline gap-3 mt-4">
-              <span className="text-3xl font-bold text-[#1A1A1A]">${product.price.toFixed(2)}</span>
+              <span className="text-2xl md:text-3xl font-bold text-[#1A1A1A]">${product.price.toFixed(2)}</span>
               {product.originalPrice && (
                 <>
                   <span className="text-xl text-[#6B7280] line-through">${product.originalPrice.toFixed(2)}</span>
@@ -394,6 +398,36 @@ export function ProductPage() {
                 </div>
               </div>
             )}
+
+            {/* Custom Bundle Banners */}
+            {settings.productBundles
+              .filter(b => b.active && b.productIds.includes(product.id))
+              .map(bundle => (
+                <div key={bundle.id} className="mt-6 bg-gradient-to-r from-[#1A5A6B] to-[#1A8DA3] rounded-xl p-5 text-white shadow-md">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                      <Tag className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">Bundle Deal</span>
+                      </div>
+                      <p className="font-heading font-bold text-lg">{bundle.name}</p>
+                      <p className="text-white/80 text-sm mt-1">
+                        {bundle.bannerText || `Buy ${bundle.quantity} for $${bundle.price.toFixed(2)}`}
+                      </p>
+                      <div className="flex items-center gap-2 mt-3">
+                        {activeProducts.filter(p => bundle.productIds.includes(p.id)).slice(0, 3).map(p => (
+                          <img key={p.id} src={p.image} alt={p.name} className="w-8 h-8 object-cover rounded-full border-2 border-white/40" />
+                        ))}
+                        {bundle.productIds.length > 3 && (
+                          <span className="text-xs text-white/70">+{bundle.productIds.length - 3} more</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
 
             {/* Multi-Color Selection */}
             {product.colors && product.colors.length > 0 && (
@@ -511,7 +545,7 @@ export function ProductPage() {
             {/* Shipping Info */}
             <div className="grid grid-cols-3 gap-4 mt-8 pt-8 border-t">
               {[
-                { icon: Truck, label: 'Free Shipping', desc: 'Orders $50+' },
+                { icon: Truck, label: 'Free Shipping', desc: `Orders $${settings.freeShippingThreshold}+` },
                 { icon: Shield, label: 'Quality Guarantee', desc: '100% inspected' },
                 { icon: RefreshCw, label: '30-Day Returns', desc: 'Hassle-free' },
               ].map(item => (
@@ -530,9 +564,9 @@ export function ProductPage() {
           <div className="flex flex-col lg:flex-row gap-12">
             {/* Rating Summary */}
             <div className="lg:w-80 flex-shrink-0">
-              <h2 className="font-heading text-2xl font-bold text-[#1A1A1A] mb-6">Customer Reviews</h2>
+              <h2 className="font-heading text-xl md:text-2xl font-bold text-[#1A1A1A] mb-6">Customer Reviews</h2>
               <div className="bg-gray-50 rounded-xl p-6">
-                <div className="text-5xl font-bold text-[#1A1A1A]">{avgRating}</div>
+                <div className="text-4xl md:text-5xl font-bold text-[#1A1A1A]">{avgRating}</div>
                 <div className="flex gap-1 mt-2">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} className={`w-5 h-5 ${i < Math.round(Number(avgRating)) ? 'fill-[#E8552A] text-[#E8552A]' : 'text-gray-300'}`} />
@@ -623,7 +657,7 @@ export function ProductPage() {
         {/* Related Products */}
         {relatedProducts.length > 0 && (
           <div className="mt-16 pt-16 border-t">
-            <h2 className="font-heading text-2xl font-bold text-[#1A1A1A]">You May Also Like</h2>
+            <h2 className="font-heading text-xl md:text-2xl font-bold text-[#1A1A1A]">You May Also Like</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-8">
               {relatedProducts.map(p => (
                 <Link key={p.id} to={`/product/${p.id}${fromBundle && bundlePins ? `?from=bundle&pins=${bundlePins}` : ''}`} className="group block bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all hover:-translate-y-1 border border-gray-100">

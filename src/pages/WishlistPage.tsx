@@ -1,14 +1,15 @@
 import { Link } from 'react-router-dom';
 import { Heart, ShoppingCart, Trash2, ArrowRight, Package } from 'lucide-react';
-import { useStore, ALL_PRODUCTS } from '@/store';
+import { useStore } from '@/store';
 import { useAuth } from '@/auth';
 import { toast } from 'sonner';
 
 export function WishlistPage() {
-  const { wishlist, toggleWishlist, moveWishlistToCart } = useStore();
+  const { wishlist, toggleWishlist, moveWishlistToCart, products } = useStore();
   const { isLoggedIn } = useAuth();
 
-  const wishlistProducts = ALL_PRODUCTS.filter(p => wishlist.includes(p.id));
+  const activeProducts = products.filter(p => p.status !== 'inactive');
+  const wishlistProducts = activeProducts.filter(p => wishlist.includes(p.id));
 
   function handleRemove(productId: string, productName: string) {
     toggleWishlist(productId);
@@ -34,7 +35,7 @@ export function WishlistPage() {
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <Heart className="w-10 h-10 text-gray-300" />
           </div>
-          <h1 className="text-2xl font-bold text-[#1A1A1A] mb-2">Your Wishlist is Empty</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#1A1A1A] mb-2">Your Wishlist is Empty</h1>
           <p className="text-gray-500 mb-6">
             {isLoggedIn
               ? "Save your favorite items here and they'll be waiting for you."

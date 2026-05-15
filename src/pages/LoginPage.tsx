@@ -3,10 +3,12 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, ArrowLeft, Eye, EyeOff, Mountain } from 'lucide-react';
 import { useAuth } from '@/auth';
+import { useSiteSettings } from '@/lib/settings-context';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 export function LoginPage() {
+  const { settings } = useSiteSettings();
   const { login, register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -191,7 +193,7 @@ export function LoginPage() {
         <div className="flex items-center justify-center gap-6 mt-8 text-[#6B7280]">
           <div className="flex items-center gap-1.5 text-xs">
             <Mountain className="w-4 h-4" />
-            <span>Free shipping $50+</span>
+            <span>Free shipping ${settings.freeShippingThreshold}+</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs">
             <Lock className="w-4 h-4" />

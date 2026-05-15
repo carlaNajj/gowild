@@ -5,7 +5,7 @@ import {
   Package, Heart, MapPin, CreditCard, User, LogOut,
   Star, Clock, Truck, CheckCircle, XCircle, Eye
 } from 'lucide-react';
-import { useStore, ALL_PRODUCTS } from '@/store';
+import { useStore } from '@/store';
 import {
   Dialog,
   DialogContent,
@@ -31,8 +31,9 @@ const SIDEBAR_ITEMS = [
 
 export function DashboardPage() {
   const [activeTab, setActiveTab] = useState('orders');
-  const { orders, wishlist, toggleWishlist } = useStore();
-  const wishlistProducts = ALL_PRODUCTS.filter(p => wishlist.includes(p.id));
+  const { orders, wishlist, toggleWishlist, products } = useStore();
+  const activeProducts = products.filter(p => p.status !== 'inactive');
+  const wishlistProducts = activeProducts.filter(p => wishlist.includes(p.id));
 
   return (
     <div className="min-h-screen bg-[#F5F0E8]">
