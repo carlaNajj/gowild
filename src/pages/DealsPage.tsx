@@ -108,7 +108,7 @@ export function DealsPage() {
               <p className="text-sm text-[#6B7280] mt-1">Limited-time price drops on fan favorites.</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {saleProducts.map((product, i) => {
               const isWished = wishlist.includes(product.id);
               const isPin = product.category === 'Pins';

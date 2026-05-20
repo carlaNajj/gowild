@@ -1,23 +1,46 @@
+import { useState } from 'react';
 import { useSiteSettings } from '@/lib/settings-context';
 import { SectionCard, ToggleSwitch, SortableList, ProductSelector } from './cms-components';
 import { Plus, Trash2 } from 'lucide-react';
 
 export function PromoCodesEditor() {
   const { settings, updateSettings } = useSiteSettings();
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validateCode = (code: typeof settings.promoCodes[0], index: number) => {
+    const next: Record<string, string> = {};
+    if (!code.code.trim()) next[`code-${index}`] = 'Code is required';
+    if (code.value <= 0) next[`value-${index}`] = 'Value must be greater than 0';
+    if (code.usedCount < 0) next[`used-${index}`] = 'Used count cannot be negative';
+    setErrors(prev => ({ ...prev, ...next }));
+    return Object.keys(next).length === 0;
+  };
 
   const updateCode = (index: number, updates: Partial<typeof settings.promoCodes[0]>) => {
     const copy = [...settings.promoCodes];
     copy[index] = { ...copy[index], ...updates };
+    // Clear errors for this field on change
+    const errKey = Object.keys(updates)[0];
+    if (errKey) {
+      setErrors(prev => {
+        const n = { ...prev };
+        delete n[`${errKey}-${index}`];
+        return n;
+      });
+    }
     updateSettings({ promoCodes: copy });
   };
 
   const addCode = () => {
+    const newCode = { id: `pc-${Date.now()}`, code: 'NEWCODE', type: 'percent' as const, value: 10, minOrder: 0, active: true, usedCount: 0 };
+    if (settings.promoCodes.length > 0) {
+      const last = settings.promoCodes[settings.promoCodes.length - 1];
+      if (!validateCode(last, settings.promoCodes.length - 1)) return;
+    }
     updateSettings({
-      promoCodes: [
-        ...settings.promoCodes,
-        { id: `pc-${Date.now()}`, code: 'NEWCODE', type: 'percent', value: 10, minOrder: 0, active: true, usedCount: 0 },
-      ],
+      promoCodes: [...settings.promoCodes, newCode],
     });
+    setErrors({});
   };
 
   const removeCode = (index: number) => {
@@ -52,13 +75,16 @@ export function PromoCodesEditor() {
                     )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <input
-                      type="text"
-                      value={code.code}
-                      onChange={e => updateCode(i, { code: e.target.value.toUpperCase() })}
-                      placeholder="CODE"
-                      className="px-3 py-2 border rounded-lg text-sm font-mono font-semibold tracking-wider focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-                    />
+                    <div>
+                      <input
+                        type="text"
+                        value={code.code}
+                        onChange={e => updateCode(i, { code: e.target.value.toUpperCase() })}
+                        placeholder="CODE"
+                        className={`w-full px-3 py-2 border rounded-lg text-sm font-mono font-semibold tracking-wider focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors[`code-${i}`] ? 'border-red-500' : ''}`}
+                      />
+                      {errors[`code-${i}`] && <p className="text-xs text-red-500 mt-1">{errors[`code-${i}`]}</p>}
+                    </div>
                     <select
                       value={code.type}
                       onChange={e => updateCode(i, { type: e.target.value as 'percent' | 'fixed' })}
@@ -67,13 +93,16 @@ export function PromoCodesEditor() {
                       <option value="percent">Percent (%)</option>
                       <option value="fixed">Fixed ($)</option>
                     </select>
-                    <input
-                      type="number"
-                      value={code.value}
-                      onChange={e => updateCode(i, { value: parseFloat(e.target.value) || 0 })}
-                      placeholder="Value"
-                      className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-                    />
+                    <div>
+                      <input
+                        type="number"
+                        value={code.value}
+                        onChange={e => updateCode(i, { value: parseFloat(e.target.value) || 0 })}
+                        placeholder="Value"
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors[`value-${i}`] ? 'border-red-500' : ''}`}
+                      />
+                      {errors[`value-${i}`] && <p className="text-xs text-red-500 mt-1">{errors[`value-${i}`]}</p>}
+                    </div>
                     <input
                       type="number"
                       value={code.minOrder || 0}
@@ -97,13 +126,16 @@ export function PromoCodesEditor() {
                       placeholder="Usage Limit (optional)"
                       className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
                     />
-                    <input
-                      type="number"
-                      value={code.usedCount}
-                      onChange={e => updateCode(i, { usedCount: parseInt(e.target.value) || 0 })}
-                      placeholder="Used Count"
-                      className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-                    />
+                    <div>
+                      <input
+                        type="number"
+                        value={code.usedCount}
+                        onChange={e => updateCode(i, { usedCount: parseInt(e.target.value) || 0 })}
+                        placeholder="Used Count"
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors[`used-${i}`] ? 'border-red-500' : ''}`}
+                      />
+                      {errors[`used-${i}`] && <p className="text-xs text-red-500 mt-1">{errors[`used-${i}`]}</p>}
+                    </div>
                     <div className="flex items-center gap-2">
                       <ToggleSwitch checked={code.active} onChange={v => updateCode(i, { active: v })} />
                       <span className="text-xs text-gray-500">{code.active ? 'Active' : 'Inactive'}</span>

@@ -1,17 +1,40 @@
+import { useState } from 'react';
 import { useSiteSettings } from '@/lib/settings-context';
 import { SectionCard, GradientPicker, IconPicker, SortableList, ToggleSwitch } from './cms-components';
 import { Plus, Trash2 } from 'lucide-react';
 
 function usePromotionsEditor() {
   const { settings, updateSettings } = useSiteSettings();
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validatePromotion = (promo: typeof settings.promotions[0], index: number) => {
+    const next: Record<string, string> = {};
+    if (!promo.title.trim()) next[`title-${index}`] = 'Title is required';
+    if (!promo.link.trim()) next[`link-${index}`] = 'Link is required';
+    if (!promo.cta.trim()) next[`cta-${index}`] = 'CTA text is required';
+    setErrors(prev => ({ ...prev, ...next }));
+    return Object.keys(next).length === 0;
+  };
 
   const updatePromotion = (index: number, updates: Partial<typeof settings.promotions[0]>) => {
     const copy = [...settings.promotions];
     copy[index] = { ...copy[index], ...updates };
+    const errKey = Object.keys(updates)[0];
+    if (errKey) {
+      setErrors(prev => {
+        const n = { ...prev };
+        delete n[`${errKey}-${index}`];
+        return n;
+      });
+    }
     updateSettings({ promotions: copy });
   };
 
   const addPromotion = () => {
+    if (settings.promotions.length > 0) {
+      const last = settings.promotions[settings.promotions.length - 1];
+      if (!validatePromotion(last, settings.promotions.length - 1)) return;
+    }
     updateSettings({
       promotions: [
         ...settings.promotions,
@@ -29,6 +52,7 @@ function usePromotionsEditor() {
         },
       ],
     });
+    setErrors({});
   };
 
   const removePromotion = (index: number) => {
@@ -37,11 +61,11 @@ function usePromotionsEditor() {
     updateSettings({ promotions: copy });
   };
 
-  return { settings, updateSettings, updatePromotion, addPromotion, removePromotion };
+  return { settings, updateSettings, updatePromotion, addPromotion, removePromotion, errors };
 }
 
 export function PromotionsEditor() {
-  const { settings, updateSettings, updatePromotion, addPromotion, removePromotion } = usePromotionsEditor();
+  const { settings, updateSettings, updatePromotion, addPromotion, removePromotion, errors } = usePromotionsEditor();
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -58,13 +82,16 @@ export function PromotionsEditor() {
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  value={promo.title}
-                  onChange={e => updatePromotion(i, { title: e.target.value })}
-                  placeholder="Title"
-                  className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-                />
+                <div>
+                  <input
+                    type="text"
+                    value={promo.title}
+                    onChange={e => updatePromotion(i, { title: e.target.value })}
+                    placeholder="Title"
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors[`title-${i}`] ? 'border-red-500' : ''}`}
+                  />
+                  {errors[`title-${i}`] && <p className="text-xs text-red-500 mt-1">{errors[`title-${i}`]}</p>}
+                </div>
                 <input
                   type="text"
                   value={promo.subtitle}
@@ -86,20 +113,26 @@ export function PromotionsEditor() {
                   placeholder="Savings text"
                   className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
                 />
-                <input
-                  type="text"
-                  value={promo.link}
-                  onChange={e => updatePromotion(i, { link: e.target.value })}
-                  placeholder="Link"
-                  className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-                />
-                <input
-                  type="text"
-                  value={promo.cta}
-                  onChange={e => updatePromotion(i, { cta: e.target.value })}
-                  placeholder="CTA Text"
-                  className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-                />
+                <div>
+                  <input
+                    type="text"
+                    value={promo.link}
+                    onChange={e => updatePromotion(i, { link: e.target.value })}
+                    placeholder="Link"
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors[`link-${i}`] ? 'border-red-500' : ''}`}
+                  />
+                  {errors[`link-${i}`] && <p className="text-xs text-red-500 mt-1">{errors[`link-${i}`]}</p>}
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={promo.cta}
+                    onChange={e => updatePromotion(i, { cta: e.target.value })}
+                    placeholder="CTA Text"
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors[`cta-${i}`] ? 'border-red-500' : ''}`}
+                  />
+                  {errors[`cta-${i}`] && <p className="text-xs text-red-500 mt-1">{errors[`cta-${i}`]}</p>}
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -127,7 +160,7 @@ export function PromotionsEditor() {
 }
 
 export function PromotionsListEditor() {
-  const { settings, updateSettings, updatePromotion, addPromotion, removePromotion } = usePromotionsEditor();
+  const { settings, updateSettings, updatePromotion, addPromotion, removePromotion, errors } = usePromotionsEditor();
 
   return (
     <>
@@ -143,13 +176,16 @@ export function PromotionsListEditor() {
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input
-                type="text"
-                value={promo.title}
-                onChange={e => updatePromotion(i, { title: e.target.value })}
-                placeholder="Title"
-                className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-              />
+              <div>
+                <input
+                  type="text"
+                  value={promo.title}
+                  onChange={e => updatePromotion(i, { title: e.target.value })}
+                  placeholder="Title"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors[`title-${i}`] ? 'border-red-500' : ''}`}
+                />
+                {errors[`title-${i}`] && <p className="text-xs text-red-500 mt-1">{errors[`title-${i}`]}</p>}
+              </div>
               <input
                 type="text"
                 value={promo.subtitle}
@@ -171,20 +207,26 @@ export function PromotionsListEditor() {
                 placeholder="Savings text"
                 className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
               />
-              <input
-                type="text"
-                value={promo.link}
-                onChange={e => updatePromotion(i, { link: e.target.value })}
-                placeholder="Link"
-                className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-              />
-              <input
-                type="text"
-                value={promo.cta}
-                onChange={e => updatePromotion(i, { cta: e.target.value })}
-                placeholder="CTA Text"
-                className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-              />
+              <div>
+                <input
+                  type="text"
+                  value={promo.link}
+                  onChange={e => updatePromotion(i, { link: e.target.value })}
+                  placeholder="Link"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors[`link-${i}`] ? 'border-red-500' : ''}`}
+                />
+                {errors[`link-${i}`] && <p className="text-xs text-red-500 mt-1">{errors[`link-${i}`]}</p>}
+              </div>
+              <div>
+                <input
+                  type="text"
+                  value={promo.cta}
+                  onChange={e => updatePromotion(i, { cta: e.target.value })}
+                  placeholder="CTA Text"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors[`cta-${i}`] ? 'border-red-500' : ''}`}
+                />
+                {errors[`cta-${i}`] && <p className="text-xs text-red-500 mt-1">{errors[`cta-${i}`]}</p>}
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>

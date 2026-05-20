@@ -1,5 +1,6 @@
+import React from 'react';
 import { motion } from 'framer-motion';
-import { Mountain, Award, Globe, Users } from 'lucide-react';
+import { Mountain, Users, Instagram, Facebook, Twitter, Youtube, Music2 } from 'lucide-react';
 import { DynamicIcon } from '@/components/DynamicIcon';
 import { useSiteSettings } from '@/lib/settings-context';
 
@@ -150,15 +151,13 @@ export function AboutPage() {
                   {para}
                 </p>
               ))}
-              <div className="flex items-center gap-4 mt-6">
-                <div className="flex items-center gap-2">
-                  <Award className="w-5 h-5 text-[#E8552A]" />
-                  <span className="text-sm font-medium text-[#1A1A1A]">Top-rated products</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-[#E8552A]" />
-                  <span className="text-sm font-medium text-[#1A1A1A]">Ships worldwide</span>
-                </div>
+              <div className="flex items-center gap-4 mt-6 flex-wrap">
+                {settings.aboutFeatures.map((feat, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <DynamicIcon name={feat.icon} className="w-5 h-5 text-[#E8552A]" />
+                    <span className="text-sm font-medium text-[#1A1A1A]">{feat.label}</span>
+                  </div>
+                ))}
               </div>
             </motion.div>
           </div>
@@ -181,16 +180,30 @@ export function AboutPage() {
             <p className="text-[#6B7280] leading-relaxed mb-8 max-w-xl mx-auto">
               {settings.aboutCta.subtitle}
             </p>
-            <div className="flex items-center justify-center gap-3">
-              {['Instagram', 'TikTok', 'YouTube'].map((social) => (
-                <a
-                  key={social}
-                  href="#"
-                  className="bg-[#1A5A6B] text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-[#1A8DA3] transition-all hover:scale-[1.02]"
-                >
-                  {social}
-                </a>
-              ))}
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              {Object.entries(settings.socialLinks)
+                .filter(([, url]) => url.trim())
+                .map(([name, url]) => {
+                  const iconMap: Record<string, React.ReactNode> = {
+                    instagram: <Instagram className="w-4 h-4" />,
+                    facebook: <Facebook className="w-4 h-4" />,
+                    twitter: <Twitter className="w-4 h-4" />,
+                    youtube: <Youtube className="w-4 h-4" />,
+                    tiktok: <Music2 className="w-4 h-4" />,
+                  };
+                  return (
+                    <a
+                      key={name}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-[#1A5A6B] text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-[#1A8DA3] transition-all hover:scale-[1.02] flex items-center gap-2"
+                    >
+                      {iconMap[name]}
+                      {name.charAt(0).toUpperCase() + name.slice(1)}
+                    </a>
+                  );
+                })}
             </div>
           </motion.div>
         </div>

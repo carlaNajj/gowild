@@ -200,8 +200,8 @@ function PinCard({
             <button onClick={() => setShowDetailModal(false)} className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-white/80 backdrop-blur-sm hover:bg-gray-100 shadow">
               <X className="w-4 h-4" />
             </button>
-            <div className="aspect-square bg-gray-50 rounded-t-2xl overflow-hidden">
-              <img src={img} alt={product.name} className="w-full h-full object-cover" />
+            <div className="h-56 bg-white rounded-t-2xl overflow-hidden flex items-center justify-center">
+              <img src={img} alt={product.name} className="w-full h-full object-contain p-6" />
             </div>
             <div className="p-5">
               <p className="text-xs text-[#6B7280] uppercase tracking-wider">{product.category}</p>
@@ -752,7 +752,7 @@ export function ProductsPage() {
       </div>
 
       {/* Desktop: Sticky filter toolbar */}
-      <div className="hidden lg:block sticky top-[72px] z-40 bg-white border-b shadow-sm">
+      <div className="hidden lg:block sticky top-[72px] z-40 bg-white/60 backdrop-blur-[16px] border-b border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 overflow-x-auto flex-1 no-scrollbar">
@@ -843,7 +843,7 @@ export function ProductsPage() {
       </div>
 
       {/* Mobile: Collapsible category selector + filter button */}
-      <div className="lg:hidden sticky top-[72px] z-40 bg-white border-b shadow-sm">
+      <div className="lg:hidden sticky top-[72px] z-40 bg-white/60 backdrop-blur-[16px] border-b border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
         <div className="px-4 py-3">
           <div className="flex items-center gap-2">
             <button
@@ -1061,10 +1061,10 @@ export function ProductsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="outline" className="border-white/50 text-white hover:bg-white/20 rounded-full text-xs px-3 bg-transparent" onClick={() => navigate('/pins-bundle?pins=' + Array.from(selectedPins.entries()).flatMap(([id, qty]) => Array(qty).fill(id)).join(','))}>
-                  <Eye className="w-3.5 h-3.5 mr-1" /> Show Details
+                  <Eye className="w-3.5 h-3.5 sm:mr-1" /> <span className="hidden sm:inline">Show Details</span>
                 </Button>
-                <Button size="sm" className="bg-white text-[#1A5A6B] hover:bg-white/90 rounded-full text-xs px-4 font-semibold" onClick={addSelectedPinsToCart}>
-                  <ShoppingBag className="w-3.5 h-3.5 mr-1" /> Add
+                <Button size="sm" className="bg-white text-[#1A5A6B] hover:bg-white/90 rounded-full text-xs px-3 sm:px-4 font-semibold" onClick={addSelectedPinsToCart}>
+                  <ShoppingBag className="w-3.5 h-3.5 sm:mr-1" /> <span className="hidden sm:inline">Add</span>
                 </Button>
               </div>
             </div>

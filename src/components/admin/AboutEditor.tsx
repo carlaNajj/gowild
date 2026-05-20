@@ -2,16 +2,17 @@ import { useSiteSettings } from '@/lib/settings-context';
 import { SectionCard, ImageUploader, IconPicker, SortableList } from './cms-components';
 import { Plus, Trash2 } from 'lucide-react';
 
-function TextField({ label, value, onChange, textarea }: { label: string; value: string; onChange: (v: string) => void; textarea?: boolean }) {
+function TextField({ label, value, onChange, textarea, error }: { label: string; value: string; onChange: (v: string) => void; textarea?: boolean; error?: string }) {
   const props = {
     value,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value),
-    className: 'w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30',
+    className: `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${error ? 'border-red-500' : ''}`,
   };
   return (
     <div>
       <label className="text-sm font-medium text-[#1A1A1A] block mb-1">{label}</label>
       {textarea ? <textarea {...props} rows={3} /> : <input {...props} type="text" />}
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
 }
@@ -35,17 +36,17 @@ export function AboutEditor() {
     <div className="space-y-6 max-w-4xl">
       <SectionCard title="Hero Section">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <TextField label="Tagline" value={settings.aboutHero.tagline} onChange={v => updateSettings({ aboutHero: { ...settings.aboutHero, tagline: v } })} />
-          <TextField label="Title" value={settings.aboutHero.title} onChange={v => updateSettings({ aboutHero: { ...settings.aboutHero, title: v } })} />
-          <TextField label="Subtitle" value={settings.aboutHero.subtitle} onChange={v => updateSettings({ aboutHero: { ...settings.aboutHero, subtitle: v } })} textarea />
+          <TextField label="Tagline" value={settings.aboutHero.tagline} onChange={v => updateSettings({ aboutHero: { ...settings.aboutHero, tagline: v } })} error={!settings.aboutHero.tagline.trim() ? 'Tagline is required' : undefined} />
+          <TextField label="Title" value={settings.aboutHero.title} onChange={v => updateSettings({ aboutHero: { ...settings.aboutHero, title: v } })} error={!settings.aboutHero.title.trim() ? 'Title is required' : undefined} />
+          <TextField label="Subtitle" value={settings.aboutHero.subtitle} onChange={v => updateSettings({ aboutHero: { ...settings.aboutHero, subtitle: v } })} textarea error={!settings.aboutHero.subtitle.trim() ? 'Subtitle is required' : undefined} />
           <ImageUploader label="Hero Image" value={settings.aboutHero.image} onChange={v => updateSettings({ aboutHero: { ...settings.aboutHero, image: v } })} />
         </div>
       </SectionCard>
 
       <SectionCard title="Mission">
         <div className="space-y-3">
-          <TextField label="Title" value={settings.aboutMission.title} onChange={v => updateSettings({ aboutMission: { ...settings.aboutMission, title: v } })} />
-          <TextField label="Text" value={settings.aboutMission.text} onChange={v => updateSettings({ aboutMission: { ...settings.aboutMission, text: v } })} textarea />
+          <TextField label="Title" value={settings.aboutMission.title} onChange={v => updateSettings({ aboutMission: { ...settings.aboutMission, title: v } })} error={!settings.aboutMission.title.trim() ? 'Title is required' : undefined} />
+          <TextField label="Text" value={settings.aboutMission.text} onChange={v => updateSettings({ aboutMission: { ...settings.aboutMission, text: v } })} textarea error={!settings.aboutMission.text.trim() ? 'Text is required' : undefined} />
         </div>
       </SectionCard>
 
@@ -134,6 +135,48 @@ export function AboutEditor() {
           >
             <Plus className="w-4 h-4" /> Add Paragraph
           </button>
+
+          <div className="pt-4 border-t">
+            <label className="text-sm font-medium text-[#1A1A1A] block mb-2">Story Features</label>
+            <div className="space-y-3">
+              {settings.aboutFeatures.map((feat, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <IconPicker value={feat.icon} onChange={icon => {
+                    const copy = [...settings.aboutFeatures];
+                    copy[i] = { ...copy[i], icon };
+                    updateSettings({ aboutFeatures: copy });
+                  }} />
+                  <input
+                    type="text"
+                    value={feat.label}
+                    onChange={e => {
+                      const copy = [...settings.aboutFeatures];
+                      copy[i] = { ...copy[i], label: e.target.value };
+                      updateSettings({ aboutFeatures: copy });
+                    }}
+                    className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
+                    placeholder="Feature label"
+                  />
+                  <button
+                    onClick={() => {
+                      const copy = [...settings.aboutFeatures];
+                      copy.splice(i, 1);
+                      updateSettings({ aboutFeatures: copy });
+                    }}
+                    className="p-2 hover:bg-red-50 text-[#E85D4E] rounded h-fit"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => updateSettings({ aboutFeatures: [...settings.aboutFeatures, { icon: 'Award', label: '' }] })}
+                className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-[#1A5A6B] hover:text-[#1A5A6B] transition-colors flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Add Feature
+              </button>
+            </div>
+          </div>
         </div>
       </SectionCard>
 

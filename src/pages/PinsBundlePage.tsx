@@ -316,33 +316,24 @@ export function PinsBundlePage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-4 py-3"
+            className="fixed bottom-0 left-0 right-0 z-40 bg-[#1A5A6B] text-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.2)] pb-[env(safe-area-inset-bottom)]"
           >
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
               {/* Count */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#1A5A6B]/10 flex items-center justify-center text-[#1A5A6B] font-bold text-sm">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm">
                   {pinTotalQty}
                 </div>
-                <div className="hidden sm:block">
-                  <p className="font-semibold text-sm text-[#1A1A1A]">pin{pinTotalQty !== 1 ? 's' : ''} selected</p>
+                <div className="text-left">
+                  <p className="font-semibold text-sm">{pinTotalQty} pin{pinTotalQty > 1 ? 's' : ''} selected</p>
+                  <p className="text-xs text-white/70">${bundleCalc.bundlePrice.toFixed(2)} · Save ${bundleCalc.savings.toFixed(2)}</p>
                 </div>
               </div>
 
-              {/* Price + Add to Cart */}
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="text-right">
-                  <p className="text-xs text-[#6B7280] line-through">${bundleCalc.regularPrice.toFixed(2)}</p>
-                  <p className="text-lg sm:text-2xl font-bold text-[#1A5A6B]">${bundleCalc.bundlePrice.toFixed(2)}</p>
-                </div>
-                {bundleCalc.savings > 0 && (
-                  <p className="hidden md:block text-xs text-[#E8552A] font-medium">Save ${bundleCalc.savings.toFixed(2)}</p>
-                )}
-                <Button
-                  onClick={addAllToCart}
-                  className="bg-[#E8552A] hover:bg-[#C4451D] rounded-full px-5 sm:px-8 py-5 sm:py-5 font-semibold text-sm"
-                >
-                  <ShoppingBag className="w-4 h-4 mr-2" /> Add to Cart
+              {/* Add to Cart */}
+              <div className="flex items-center gap-2">
+                <Button size="sm" className="bg-white text-[#1A5A6B] hover:bg-white/90 rounded-full text-xs px-3 sm:px-4 font-semibold" onClick={addAllToCart}>
+                  <ShoppingBag className="w-3.5 h-3.5 sm:mr-1" /> <span className="hidden sm:inline">Add</span>
                 </Button>
               </div>
             </div>

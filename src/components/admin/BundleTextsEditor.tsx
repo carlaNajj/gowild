@@ -4,16 +4,17 @@ import { SectionCard } from './cms-components';
 import { Plus, Pencil, Trash2, X, Check, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 
-function TextField({ label, value, onChange, textarea }: { label: string; value: string; onChange: (v: string) => void; textarea?: boolean }) {
+function TextField({ label, value, onChange, textarea, error }: { label: string; value: string; onChange: (v: string) => void; textarea?: boolean; error?: string }) {
   const props = {
     value,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value),
-    className: 'w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30',
+    className: `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${error ? 'border-red-500' : ''}`,
   };
   return (
     <div>
       <label className="text-sm font-medium text-[#1A1A1A] block mb-1">{label}</label>
       {textarea ? <textarea {...props} rows={3} /> : <input {...props} type="text" />}
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
 }
@@ -33,6 +34,17 @@ export function BundleTextsEditor() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<BundleTextItem, 'id'>>(EMPTY_ITEM);
   const [isCreating, setIsCreating] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const next: Record<string, string> = {};
+    if (!form.key.trim()) next.key = 'Key is required';
+    else if (!/^[a-zA-Z0-9_-]+$/.test(form.key)) next.key = 'Key must contain only letters, numbers, hyphens and underscores';
+    if (!form.label.trim()) next.label = 'Label is required';
+    if (!form.value.trim()) next.value = 'Value is required';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
 
   const startEdit = (item: BundleTextItem) => {
     setForm({
@@ -52,23 +64,18 @@ export function BundleTextsEditor() {
     setForm(EMPTY_ITEM);
     setEditingId(null);
     setIsCreating(true);
+    setErrors({});
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setIsCreating(false);
     setForm(EMPTY_ITEM);
+    setErrors({});
   };
 
   const saveItem = () => {
-    if (!form.key.trim() || !form.label.trim() || !form.value.trim()) {
-      toast.error('Key, Label and Value are required');
-      return;
-    }
-    if (!/^[a-zA-Z0-9_-]+$/.test(form.key)) {
-      toast.error('Key must contain only letters, numbers, hyphens and underscores');
-      return;
-    }
+    if (!validate()) return;
 
     if (isCreating) {
       const newItem: BundleTextItem = {
@@ -124,12 +131,12 @@ export function BundleTextsEditor() {
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <TextField label="Key *" value={form.key} onChange={v => setForm({ ...form, key: v })} />
-            <TextField label="Label *" value={form.label} onChange={v => setForm({ ...form, label: v })} />
+            <TextField label="Key *" value={form.key} onChange={v => setForm({ ...form, key: v })} error={errors.key} />
+            <TextField label="Label *" value={form.label} onChange={v => setForm({ ...form, label: v })} error={errors.label} />
             <TextField label="Page Name" value={form.page} onChange={v => setForm({ ...form, page: v })} />
             <TextField label="Page Link" value={form.pageLink} onChange={v => setForm({ ...form, pageLink: v })} />
           </div>
-          <TextField label="Value *" value={form.value} onChange={v => setForm({ ...form, value: v })} textarea />
+          <TextField label="Value *" value={form.value} onChange={v => setForm({ ...form, value: v })} textarea error={errors.value} />
           <TextField label="Description" value={form.description} onChange={v => setForm({ ...form, description: v })} textarea />
           <div className="flex items-center gap-3 pt-2">
             <button

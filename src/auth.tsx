@@ -17,6 +17,8 @@ export interface User {
   };
   wishlist?: string[];
   createdAt?: string;
+  password?: string;
+  paymentMethods?: string[];
 }
 
 export interface GuestInfo {
@@ -50,6 +52,7 @@ interface AuthContextType {
   setGuestInfo: (info: GuestInfo) => void;
   clearGuest: () => void;
   updateProfile: (data: Partial<User>) => void;
+  updatePassword: (currentPassword: string, newPassword: string) => boolean;
   mergeWishlistOnLogin: () => void;
   toggleUserStatus: (id: string) => void;
   updateUserRole: (id: string, role: 'admin' | 'staff' | 'customer') => void;
@@ -71,6 +74,8 @@ const DEMO_USER: User = {
     country: 'USA',
   },
   createdAt: '2026-01-01',
+  password: 'demo1234',
+  paymentMethods: ['Visa •••• 4242'],
 };
 
 const DEMO_ADMIN: User = {
@@ -88,6 +93,7 @@ const DEMO_ADMIN: User = {
     country: 'USA',
   },
   createdAt: '2026-01-01',
+  password: 'admin1234',
 };
 
 const DEMO_STAFF: User = {
@@ -105,14 +111,26 @@ const DEMO_STAFF: User = {
     country: 'USA',
   },
   createdAt: '2026-01-01',
+  password: 'staff1234',
 };
 
 function loadUsers(): User[] {
+  const defaults = [DEMO_USER, DEMO_ADMIN, DEMO_STAFF];
   try {
     const raw = localStorage.getItem(USERS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed: User[] = JSON.parse(raw);
+      // Merge with defaults: keep saved users but ensure default users have all fields
+      const merged = defaults.map(def => {
+        const saved = parsed.find(u => u.id === def.id);
+        return saved ? { ...def, ...saved } : def;
+      });
+      // Add any non-default users from localStorage
+      const nonDefault = parsed.filter(u => !defaults.some(d => d.id === u.id));
+      return [...merged, ...nonDefault];
+    }
   } catch { /* ignore */ }
-  return [DEMO_USER, DEMO_ADMIN, DEMO_STAFF];
+  return defaults;
 }
 
 function saveUsers(users: User[]) {
@@ -141,12 +159,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     if (email.includes('@') && password.length >= 4) {
-      // Check if user exists in users array
       const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (existingUser && existingUser.status === 'inactive') {
-        return false;
+      if (existingUser) {
+        if (existingUser.status === 'inactive') return false;
+        if (existingUser.password && existingUser.password !== password) return false;
+        const loggedInUser = { ...existingUser };
+        setUser(loggedInUser);
+        setGuestInfoState(null);
+        localStorage.setItem(USER_KEY, JSON.stringify(loggedInUser));
+        setTimeout(() => mergeWishlistOnLoginFn(loggedInUser), 100);
+        return true;
       }
-      const loggedInUser = existingUser ? { ...existingUser, email } : { ...DEMO_USER, email };
+      // Fallback for users not in array (legacy)
+      const loggedInUser = { ...DEMO_USER, email };
       setUser(loggedInUser);
       setGuestInfoState(null);
       localStorage.setItem(USER_KEY, JSON.stringify(loggedInUser));
@@ -158,19 +183,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const adminLogin = useCallback(async (email: string, password: string): Promise<boolean> => {
     if (email.includes('@') && password.length >= 4) {
-      // Check for admin user
       const adminUser = users.find(
         u => u.email.toLowerCase() === email.toLowerCase() && (u.role === 'admin' || u.role === 'staff')
       );
       if (adminUser && adminUser.status === 'active') {
+        if (adminUser.password && adminUser.password !== password) return false;
         setUser(adminUser);
         setGuestInfoState(null);
         localStorage.setItem(USER_KEY, JSON.stringify(adminUser));
         return true;
       }
-      // Fallback: allow admin@gowild.com with any valid password
       if (email.toLowerCase() === 'admin@gowild.com') {
         const fallbackAdmin = users.find(u => u.email.toLowerCase() === 'admin@gowild.com') || DEMO_ADMIN;
+        if (fallbackAdmin.password && fallbackAdmin.password !== password) return false;
         setUser(fallbackAdmin);
         setGuestInfoState(null);
         localStorage.setItem(USER_KEY, JSON.stringify(fallbackAdmin));
@@ -191,11 +216,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status: 'active',
         address: { street: '', city: '', state: '', zip: '', country: 'USA' },
         createdAt: new Date().toISOString().split('T')[0],
+        password,
       };
       setUser(newUser);
       setGuestInfoState(null);
       localStorage.setItem(USER_KEY, JSON.stringify(newUser));
-      // Add to users array
       setUsers(prev => {
         const exists = prev.some(u => u.email.toLowerCase() === email.toLowerCase());
         if (exists) return prev;
@@ -238,11 +263,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!prev) return null;
       const updated = { ...prev, ...data };
       localStorage.setItem(USER_KEY, JSON.stringify(updated));
-      // Also update in users array
       setUsers(usersPrev => usersPrev.map(u => u.id === prev.id ? updated : u));
       return updated;
     });
   }, []);
+
+  const updatePassword = useCallback((currentPassword: string, newPassword: string): boolean => {
+    if (!user) return false;
+    if (user.password && user.password !== currentPassword) return false;
+    if (newPassword.length < 4) return false;
+    const updated = { ...user, password: newPassword };
+    setUser(updated);
+    localStorage.setItem(USER_KEY, JSON.stringify(updated));
+    setUsers(prev => prev.map(u => u.id === user.id ? updated : u));
+    return true;
+  }, [user]);
 
   const toggleUserStatus = useCallback((id: string) => {
     setUsers(prev => prev.map(u => {
@@ -281,6 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setGuestInfo,
         clearGuest,
         updateProfile,
+        updatePassword,
         mergeWishlistOnLogin: () => mergeWishlistOnLoginFn(),
         toggleUserStatus,
         updateUserRole,

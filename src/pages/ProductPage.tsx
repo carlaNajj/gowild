@@ -166,6 +166,7 @@ export function ProductPage() {
     addToCart, addMultipleToCart, toggleWishlist, isInWishlist, getProductReviews
   } = useStore();
   const { getProductById, products } = useStore();
+  const activeProducts = products.filter(p => p.status !== 'inactive');
   const product = getProductById(id || '');
 
   // Read bundle query params for back navigation
@@ -322,12 +323,12 @@ export function ProductPage() {
             </div>
 
             {/* Thumbnail gallery */}
-            <div className="flex gap-3 mt-4 overflow-x-auto pb-2">
+            <div className="grid grid-cols-5 sm:flex sm:gap-3 mt-4 gap-2">
               {images.map((img, i) => (
                 <button
                   key={`${displayColor}-${i}`}
                   onClick={() => setSelectedImage(i)}
-                  className={`w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${
+                  className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
                     selectedImage === i ? 'border-[#1A5A6B]' : 'border-transparent hover:border-gray-300'
                   }`}
                 >
@@ -354,7 +355,7 @@ export function ProductPage() {
               )}
             </div>
 
-            <h1 className="font-heading text-3xl md:text-4xl font-bold text-[#1A1A1A]">{product.name}</h1>
+            <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold text-[#1A1A1A]">{product.name}</h1>
 
             {/* Rating summary */}
             <div className="flex items-center gap-3 mt-3">
@@ -366,7 +367,7 @@ export function ProductPage() {
               <span className="text-sm text-[#6B7280]">{avgRating} ({productReviews.length || product.reviewCount} reviews)</span>
             </div>
 
-            <div className="flex items-baseline gap-3 mt-4">
+            <div className="flex flex-wrap items-baseline gap-3 mt-4">
               <span className="text-2xl md:text-3xl font-bold text-[#1A1A1A]">${product.price.toFixed(2)}</span>
               {product.originalPrice && (
                 <>
@@ -376,11 +377,10 @@ export function ProductPage() {
                   </span>
                 </>
               )}
+              <span className="inline-flex items-center gap-1.5 bg-[#52796F]/15 text-[#52796F] text-sm font-medium px-3 py-1.5 rounded-full">
+                <Check className="w-4 h-4" /> In Stock ({product.stock} left)
+              </span>
             </div>
-
-            <span className="inline-flex items-center gap-1.5 mt-4 bg-[#52796F]/15 text-[#52796F] text-sm font-medium px-3 py-1.5 rounded-full">
-              <Check className="w-4 h-4" /> In Stock ({product.stock} left)
-            </span>
 
             <p className="text-[#6B7280] mt-6 leading-relaxed">{product.description}</p>
 
@@ -507,31 +507,18 @@ export function ProductPage() {
             )}
 
             {/* Quantity + Add to Cart */}
-            <div className="flex gap-4 mt-8">
-              <div className="flex items-center border rounded-lg">
-                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-4 py-3 hover:bg-gray-50 transition-colors"><Minus className="w-4 h-4" /></button>
-                <span className="px-4 py-3 font-semibold min-w-[3rem] text-center">{quantity}</span>
-                <button onClick={() => setQuantity(quantity + 1)} className="px-4 py-3 hover:bg-gray-50 transition-colors"><Plus className="w-4 h-4" /></button>
+            <div className="flex flex-wrap sm:flex-nowrap gap-3 mt-8">
+              <div className="flex items-center justify-center border rounded-lg h-10 sm:h-11 flex-1 sm:flex-initial">
+                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 sm:px-4 hover:bg-gray-50 transition-colors h-full flex items-center justify-center"><Minus className="w-4 h-4" /></button>
+                <span className="px-3 sm:px-4 font-semibold min-w-[3rem] text-center h-full flex items-center justify-center">{quantity}</span>
+                <button onClick={() => setQuantity(quantity + 1)} className="px-3 sm:px-4 hover:bg-gray-50 transition-colors h-full flex items-center justify-center"><Plus className="w-4 h-4" /></button>
               </div>
-              <Button
-                onClick={handleAddToCart}
-                className={`flex-1 rounded-full font-semibold text-base py-6 transition-all ${
-                  addedToCart ? 'bg-[#52796F] hover:bg-[#52796F]' : 'bg-[#1A5A6B] hover:bg-[#1A8DA3] hover:shadow-lg hover:scale-[1.02]'
-                }`}
-              >
-                {addedToCart ? (
-                  <span className="flex items-center gap-2"><Check className="w-5 h-5" /> Added to Cart</span>
-                ) : (
-                  <span className="flex items-center gap-2"><ShoppingBag className="w-5 h-5" /> Add to Cart &mdash; ${(product.price * quantity).toFixed(2)}</span>
-                )}
-              </Button>
-              {/* Wishlist button with clear states */}
               <button
                 onClick={() => {
                   toggleWishlist(product.id);
                   toast(isWished ? 'Removed from wishlist' : 'Added to wishlist');
                 }}
-                className={`w-14 rounded-lg border flex items-center justify-center transition-all ${
+                className={`w-12 sm:w-14 h-10 sm:h-11 rounded-lg border flex items-center justify-center transition-all flex-shrink-0 order-2 sm:order-3 ${
                   isWished
                     ? 'bg-[#E85D4E]/10 border-[#E85D4E] text-[#E85D4E]'
                     : 'border-gray-200 text-gray-400 hover:border-[#E85D4E]/40 hover:text-[#E85D4E] hover:bg-[#E85D4E]/5'
@@ -540,6 +527,18 @@ export function ProductPage() {
               >
                 <Heart className={`w-5 h-5 transition-all ${isWished ? 'fill-[#E85D4E] scale-110' : ''}`} />
               </button>
+              <Button
+                onClick={handleAddToCart}
+                className={`flex-1 basis-full sm:basis-auto rounded-full font-semibold text-sm sm:text-base h-10 sm:h-11 order-3 sm:order-2 transition-all ${
+                  addedToCart ? 'bg-[#52796F] hover:bg-[#52796F]' : 'bg-[#1A5A6B] hover:bg-[#1A8DA3] hover:shadow-lg hover:scale-[1.02]'
+                }`}
+              >
+                {addedToCart ? (
+                  <span className="flex items-center gap-2"><Check className="w-5 h-5" /> Added</span>
+                ) : (
+                  <span className="flex items-center gap-2"><ShoppingBag className="w-5 h-5" /> <span className="hidden sm:inline">Add to Cart</span><span className="sm:hidden">Add</span> &mdash; ${(product.price * quantity * (selectedColors.length || 1)).toFixed(2)}</span>
+                )}
+              </Button>
             </div>
 
             {/* Shipping Info */}

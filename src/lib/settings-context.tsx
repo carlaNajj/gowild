@@ -185,6 +185,7 @@ export interface SiteSettings {
     facebook: string;
     twitter: string;
     youtube: string;
+    tiktok: string;
   };
 
   /* ---- Newsletter ---- */
@@ -199,6 +200,7 @@ export interface SiteSettings {
   aboutValues: AboutValue[];
   aboutStats: AboutStat[];
   aboutStory: { title: string; paragraphs: string[]; image: string };
+  aboutFeatures: { icon: string; label: string }[];
   aboutCta: { title: string; subtitle: string };
 }
 
@@ -331,6 +333,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     facebook: '',
     twitter: '',
     youtube: '',
+    tiktok: '',
   },
 
   newsletterTitle: 'Join the Wild Club',
@@ -386,6 +389,11 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     ],
     image: '/cat-hats.jpg',
   },
+
+  aboutFeatures: [
+    { icon: 'Award', label: 'Top-rated products' },
+    { icon: 'Globe', label: 'Ships worldwide' },
+  ],
 
   aboutCta: {
     title: 'Join the Wild Community',

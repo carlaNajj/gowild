@@ -1,31 +1,34 @@
 import { useSiteSettings } from '@/lib/settings-context';
 import { SectionCard, ToggleSwitch } from './cms-components';
 
-function TextField({ label, value, onChange, type = 'text', textarea }: { label: string; value: string; onChange: (v: string) => void; type?: string; textarea?: boolean }) {
+function TextField({ label, value, onChange, type = 'text', textarea, error }: { label: string; value: string; onChange: (v: string) => void; type?: string; textarea?: boolean; error?: string }) {
   const props = {
     value,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value),
-    className: 'w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30',
+    className: `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${error ? 'border-red-500' : ''}`,
   };
   return (
     <div>
       <label className="text-sm font-medium text-[#1A1A1A] block mb-1">{label}</label>
       {textarea ? <textarea {...props} rows={3} /> : <input {...props} type={type} />}
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
 }
 
-function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function NumberField({ label, value, onChange, min, error }: { label: string; value: number; onChange: (v: number) => void; min?: number; error?: string }) {
   return (
     <div>
       <label className="text-sm font-medium text-[#1A1A1A] block mb-1">{label}</label>
       <input
         type="number"
         step="0.01"
+        min={min}
         value={value}
         onChange={e => onChange(parseFloat(e.target.value) || 0)}
-        className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
+        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${error ? 'border-red-500' : ''}`}
       />
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
 }
@@ -37,8 +40,8 @@ export function SettingsEditor() {
     <div className="space-y-6 max-w-4xl">
       <SectionCard title="Store Information">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <TextField label="Store Name" value={settings.storeName} onChange={v => updateSettings({ storeName: v })} />
-          <TextField label="Contact Email" value={settings.contactEmail} onChange={v => updateSettings({ contactEmail: v })} />
+          <TextField label="Store Name" value={settings.storeName} onChange={v => updateSettings({ storeName: v })} error={!settings.storeName.trim() ? 'Store name is required' : undefined} />
+          <TextField label="Contact Email" type="email" value={settings.contactEmail} onChange={v => updateSettings({ contactEmail: v })} error={!settings.contactEmail.trim() ? 'Contact email is required' : undefined} />
           <div>
             <label className="text-sm font-medium text-[#1A1A1A] block mb-1">Currency</label>
             <select
@@ -61,8 +64,8 @@ export function SettingsEditor() {
 
       <SectionCard title="Shipping">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <NumberField label="Free Shipping Threshold ($)" value={settings.freeShippingThreshold} onChange={v => updateSettings({ freeShippingThreshold: v })} />
-          <NumberField label="Standard Shipping Rate ($)" value={settings.standardShippingRate} onChange={v => updateSettings({ standardShippingRate: v })} />
+          <NumberField label="Free Shipping Threshold ($)" value={settings.freeShippingThreshold} onChange={v => updateSettings({ freeShippingThreshold: v })} min={0} error={settings.freeShippingThreshold < 0 ? 'Must be 0 or greater' : undefined} />
+          <NumberField label="Standard Shipping Rate ($)" value={settings.standardShippingRate} onChange={v => updateSettings({ standardShippingRate: v })} min={0} error={settings.standardShippingRate < 0 ? 'Must be 0 or greater' : undefined} />
         </div>
       </SectionCard>
 

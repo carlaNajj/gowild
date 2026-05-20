@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Instagram, Facebook, Twitter, Youtube, Mail, MapPin, Phone } from 'lucide-react';
+import { Instagram, Facebook, Twitter, Youtube, Mail, MapPin, Phone, Music2 } from 'lucide-react';
 import { useSiteSettings } from '@/lib/settings-context';
 
 export function Footer() {
@@ -10,6 +10,7 @@ export function Footer() {
     { icon: Facebook, url: settings.socialLinks.facebook, label: 'Facebook' },
     { icon: Twitter, url: settings.socialLinks.twitter, label: 'Twitter' },
     { icon: Youtube, url: settings.socialLinks.youtube, label: 'YouTube' },
+    { icon: Music2, url: settings.socialLinks.tiktok, label: 'TikTok' },
   ].filter(s => s.url);
 
   return (

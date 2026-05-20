@@ -62,12 +62,12 @@ export function HomePage() {
       {/* Best Sellers */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
             <div>
               <h2 className="font-heading text-2xl md:text-3xl lg:text-4xl font-bold text-[#1A1A1A]">{settings.sectionTitles.bestSellers.title}</h2>
               <p className="text-[#6B7280] mt-2 text-sm">{settings.sectionTitles.bestSellers.subtitle}</p>
             </div>
-            <Link to="/products" className="text-[#1A5A6B] font-medium text-sm hover:underline flex items-center gap-1">View All <ChevronDown className="w-4 h-4 rotate-[-90deg]" /></Link>
+            <Link to="/products" className="text-[#1A5A6B] font-medium text-sm hover:underline flex items-center gap-1 self-start sm:self-auto">View All <ChevronDown className="w-4 h-4 rotate-[-90deg]" /></Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {featuredProducts.map((product, i) => (
@@ -167,12 +167,12 @@ export function HomePage() {
       {/* New Arrivals */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
             <div>
               <h2 className="font-heading text-2xl md:text-3xl lg:text-4xl font-bold text-[#1A1A1A]">{settings.sectionTitles.newArrivals.title}</h2>
               <p className="text-[#6B7280] mt-2 text-sm">{settings.sectionTitles.newArrivals.subtitle}</p>
             </div>
-            <Link to="/products" className="text-[#1A5A6B] font-medium text-sm hover:underline flex items-center gap-1">View All <ChevronDown className="w-4 h-4 rotate-[-90deg]" /></Link>
+            <Link to="/products" className="text-[#1A5A6B] font-medium text-sm hover:underline flex items-center gap-1 self-start sm:self-auto">View All <ChevronDown className="w-4 h-4 rotate-[-90deg]" /></Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {newProducts.map((product, i) => (
@@ -210,7 +210,7 @@ export function HomePage() {
                     <Quote className="w-5 h-5 text-[#1A5A6B]/30 flex-shrink-0 mt-0.5" />
                     <p className="text-[#1A1A1A] text-sm leading-relaxed">{review.text}</p>
                   </div>
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                  <div className="flex flex-col gap-2 pt-4 border-t border-gray-50">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-[#1A5A6B] text-white flex items-center justify-center text-xs font-bold">
                         {review.userName.charAt(0)}
@@ -220,7 +220,7 @@ export function HomePage() {
                         <p className="text-xs text-gray-400">{review.date}</p>
                       </div>
                     </div>
-                    <span className="text-xs text-[#1A5A6B] bg-[#1A5A6B]/10 px-3 py-1 rounded-full font-medium">
+                    <span className="self-start text-xs text-[#1A5A6B] bg-[#1A5A6B]/10 px-3 py-1 rounded-full font-medium">
                       Review for {review.productName}
                     </span>
                   </div>
@@ -244,7 +244,7 @@ export function HomePage() {
                     <Quote className="w-5 h-5 text-[#1A5A6B]/30 flex-shrink-0 mt-0.5" />
                     <p className="text-[#1A1A1A] text-sm leading-relaxed">{review.text}</p>
                   </div>
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                  <div className="flex flex-col gap-2 pt-4 border-t border-gray-50">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-[#1A5A6B] text-white flex items-center justify-center text-xs font-bold">
                         {review.name.charAt(0)}
@@ -254,7 +254,7 @@ export function HomePage() {
                         <p className="text-xs text-gray-400">{review.date}</p>
                       </div>
                     </div>
-                    <span className="text-xs text-[#1A5A6B] bg-[#1A5A6B]/10 px-3 py-1 rounded-full font-medium">
+                    <span className="self-start text-xs text-[#1A5A6B] bg-[#1A5A6B]/10 px-3 py-1 rounded-full font-medium">
                       Review for {review.productName}
                     </span>
                   </div>
@@ -416,12 +416,12 @@ function RecommendedSection() {
   return (
     <section className="py-20 bg-[#F0F7F5]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
           <div>
             <h2 className="font-heading text-2xl md:text-3xl lg:text-4xl font-bold text-[#1A1A1A]">{settings.sectionTitles.recommended.title}</h2>
             <p className="text-[#6B7280] mt-2 text-sm">{settings.sectionTitles.recommended.subtitle}</p>
           </div>
-          <Link to="/products" className="text-[#1A5A6B] font-medium text-sm hover:underline flex items-center gap-1">View All <ChevronDown className="w-4 h-4 rotate-[-90deg]" /></Link>
+          <Link to="/products" className="text-[#1A5A6B] font-medium text-sm hover:underline flex items-center gap-1 self-start sm:self-auto">View All <ChevronDown className="w-4 h-4 rotate-[-90deg]" /></Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {displayProducts.map((product, i) => (

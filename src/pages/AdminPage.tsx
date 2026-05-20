@@ -6,7 +6,7 @@ import {
   Search, Plus, Pencil, Trash2, Eye, ChevronLeft, ChevronRight,
   TrendingUp, TrendingDown, DollarSign, Boxes, LogOut, Menu, X,
   FileText, Navigation, Tag, Percent, Globe, MessageCircle, Printer,
-  Upload, Download, Gift
+  Upload, Download, Gift, Lock, CreditCard
 } from 'lucide-react';
 import { useStore, type Product, type Order } from '@/store';
 import { useAuth } from '@/auth';
@@ -266,7 +266,15 @@ export function AdminPage() {
   };
 
   const getUserOrderCount = (userId: string) => {
-    return orders.filter(o => o.customerEmail && users.find(u => u.id === userId)?.email === o.customerEmail).length;
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser?.email) return 0;
+    return orders.filter(o => o.customerEmail && o.customerEmail.toLowerCase() === targetUser.email.toLowerCase()).length;
+  };
+
+  const getUserDeliveredCount = (userId: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser?.email) return 0;
+    return orders.filter(o => o.customerEmail && o.customerEmail.toLowerCase() === targetUser.email.toLowerCase() && o.status === 'delivered').length;
   };
 
   const printInvoice = (order: Order) => {
@@ -1178,6 +1186,7 @@ export function AdminPage() {
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead className="hidden lg:table-cell">Phone</TableHead>
                         <TableHead className="hidden md:table-cell">Role</TableHead>
                         <TableHead className="hidden sm:table-cell">Orders</TableHead>
                         <TableHead>Status</TableHead>
@@ -1189,6 +1198,7 @@ export function AdminPage() {
                       <TableRow key={u.id}>
                         <TableCell className="font-medium">{u.name}</TableCell>
                         <TableCell className="text-sm">{u.email}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-sm">{u.phone || '—'}</TableCell>
                         <TableCell className="hidden md:table-cell">
                           <select
                             value={u.role}
@@ -1220,16 +1230,35 @@ export function AdminPage() {
                                   <DialogTitle className="font-heading">User Details</DialogTitle>
                                 </DialogHeader>
                                 <div className="mt-4 space-y-3 text-sm">
-                                  <div><span className="text-[#6B7280]">Name:</span> {u.name}</div>
-                                  <div><span className="text-[#6B7280]">Email:</span> {u.email}</div>
-                                  <div><span className="text-[#6B7280]">Phone:</span> {u.phone || 'N/A'}</div>
-                                  <div><span className="text-[#6B7280]">Role:</span> {u.role}</div>
-                                  <div><span className="text-[#6B7280]">Status:</span>
-                                    <span className={`ml-2 text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[u.status]}`}>
-                                      {u.status}
-                                    </span>
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-[#1A5A6B] text-white flex items-center justify-center font-bold text-sm">
+                                      {u.name?.charAt(0) || 'U'}
+                                    </div>
+                                    <div>
+                                      <div className="font-medium">{u.name}</div>
+                                      <div className="text-xs text-[#6B7280]">{u.email}</div>
+                                    </div>
                                   </div>
-                                  <div><span className="text-[#6B7280]">Address:</span> {u.address ? `${u.address.street}, ${u.address.city}, ${u.address.state} ${u.address.zip}` : 'N/A'}</div>
+                                  <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+                                    <div><span className="text-[#6B7280]">Phone:</span> {u.phone || 'N/A'}</div>
+                                    <div><span className="text-[#6B7280]">Role:</span> <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${u.role === 'admin' ? 'bg-[#1A5A6B]/15 text-[#1A5A6B]' : u.role === 'staff' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{u.role}</span></div>
+                                    <div><span className="text-[#6B7280]">Status:</span> <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[u.status]}`}>{u.status}</span></div>
+                                    <div><span className="text-[#6B7280]">Member Since:</span> {u.createdAt || 'N/A'}</div>
+                                    <div><span className="text-[#6B7280]">Orders:</span> {getUserOrderCount(u.id)}</div>
+                                    <div><span className="text-[#6B7280]">Delivered:</span> {getUserDeliveredCount(u.id)}</div>
+                                    <div><span className="text-[#6B7280]">Wishlist:</span> {u.wishlist?.length || 0} items</div>
+                                  </div>
+                                  <div className="pt-2 border-t">
+                                    <div><span className="text-[#6B7280]">Address:</span> {u.address ? `${u.address.street}, ${u.address.city}, ${u.address.state} ${u.address.zip}, ${u.address.country}` : 'N/A'}</div>
+                                  </div>
+                                  <div className="pt-2 border-t space-y-1">
+                                    <div className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-[#6B7280]" /><span className="text-[#6B7280]">Password:</span> <span className="font-mono text-xs tracking-widest">••••••••</span></div>
+                                    {u.paymentMethods && u.paymentMethods.length > 0 ? (
+                                      <div className="flex items-start gap-1.5"><CreditCard className="w-3.5 h-3.5 text-[#6B7280] mt-0.5" /><span className="text-[#6B7280]">Payment:</span> <span className="space-x-1">{u.paymentMethods.map((pm, i) => (<span key={i} className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{pm}</span>))}</span></div>
+                                    ) : (
+                                      <div className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5 text-[#6B7280]" /><span className="text-[#6B7280]">Payment:</span> <span className="text-xs text-gray-400">None saved</span></div>
+                                    )}
+                                  </div>
                                 </div>
                               </DialogContent>
                             </Dialog>
@@ -1285,6 +1314,7 @@ export function AdminPage() {
                         <div>
                           <p className="font-medium text-sm">{u.name}</p>
                           <p className="text-xs text-[#6B7280]">{u.email}</p>
+                          {u.phone && <p className="text-xs text-[#6B7280]">{u.phone}</p>}
                         </div>
                         <button
                           onClick={() => toggleUserStatus(u.id)}
@@ -1294,7 +1324,11 @@ export function AdminPage() {
                         </button>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-xs text-[#6B7280]">{getUserOrderCount(u.id)} orders</span>
+                        <div className="flex gap-3">
+                          <span className="text-xs text-[#6B7280]">{getUserOrderCount(u.id)} orders</span>
+                          <span className="text-xs text-[#6B7280]">{getUserDeliveredCount(u.id)} delivered</span>
+                          <span className="text-xs text-[#6B7280]">{u.wishlist?.length || 0} wishlist</span>
+                        </div>
                         <div className="flex items-center gap-2">
                           <Dialog>
                             <DialogTrigger asChild>
@@ -1305,16 +1339,35 @@ export function AdminPage() {
                                 <DialogTitle className="font-heading">User Details</DialogTitle>
                               </DialogHeader>
                               <div className="mt-4 space-y-3 text-sm">
-                                <div><span className="text-[#6B7280]">Name:</span> {u.name}</div>
-                                <div><span className="text-[#6B7280]">Email:</span> {u.email}</div>
-                                <div><span className="text-[#6B7280]">Phone:</span> {u.phone || 'N/A'}</div>
-                                <div><span className="text-[#6B7280]">Role:</span> {u.role}</div>
-                                <div><span className="text-[#6B7280]">Status:</span>
-                                  <span className={`ml-2 text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[u.status]}`}>
-                                    {u.status}
-                                  </span>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-[#1A5A6B] text-white flex items-center justify-center font-bold text-sm">
+                                    {u.name?.charAt(0) || 'U'}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium">{u.name}</div>
+                                    <div className="text-xs text-[#6B7280]">{u.email}</div>
+                                  </div>
                                 </div>
-                                <div><span className="text-[#6B7280]">Address:</span> {u.address ? `${u.address.street}, ${u.address.city}, ${u.address.state} ${u.address.zip}` : 'N/A'}</div>
+                                <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+                                  <div><span className="text-[#6B7280]">Phone:</span> {u.phone || 'N/A'}</div>
+                                  <div><span className="text-[#6B7280]">Role:</span> <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${u.role === 'admin' ? 'bg-[#1A5A6B]/15 text-[#1A5A6B]' : u.role === 'staff' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{u.role}</span></div>
+                                  <div><span className="text-[#6B7280]">Status:</span> <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[u.status]}`}>{u.status}</span></div>
+                                  <div><span className="text-[#6B7280]">Member Since:</span> {u.createdAt || 'N/A'}</div>
+                                  <div><span className="text-[#6B7280]">Orders:</span> {getUserOrderCount(u.id)}</div>
+                                  <div><span className="text-[#6B7280]">Delivered:</span> {getUserDeliveredCount(u.id)}</div>
+                                  <div><span className="text-[#6B7280]">Wishlist:</span> {u.wishlist?.length || 0} items</div>
+                                </div>
+                                <div className="pt-2 border-t">
+                                  <div><span className="text-[#6B7280]">Address:</span> {u.address ? `${u.address.street}, ${u.address.city}, ${u.address.state} ${u.address.zip}, ${u.address.country}` : 'N/A'}</div>
+                                </div>
+                                <div className="pt-2 border-t space-y-1">
+                                  <div className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-[#6B7280]" /><span className="text-[#6B7280]">Password:</span> <span className="font-mono text-xs tracking-widest">••••••••</span></div>
+                                  {u.paymentMethods && u.paymentMethods.length > 0 ? (
+                                    <div className="flex items-start gap-1.5"><CreditCard className="w-3.5 h-3.5 text-[#6B7280] mt-0.5" /><span className="text-[#6B7280]">Payment:</span> <span className="space-x-1">{u.paymentMethods.map((pm, i) => (<span key={i} className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{pm}</span>))}</span></div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5 text-[#6B7280]" /><span className="text-[#6B7280]">Payment:</span> <span className="text-xs text-gray-400">None saved</span></div>
+                                  )}
+                                </div>
                               </div>
                             </DialogContent>
                           </Dialog>

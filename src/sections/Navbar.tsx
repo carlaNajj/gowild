@@ -46,6 +46,7 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +60,16 @@ export function Navbar() {
 
   const isAdmin = location.pathname.startsWith('/admin');
   if (isAdmin) return null;
+
+  // Track scroll position for glassmorphism
+  useEffect(() => {
+    function handleScroll() {
+      setScrolled(window.scrollY > 10);
+    }
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Load history when search opens
   useEffect(() => {
@@ -508,7 +519,11 @@ export function Navbar() {
 
       {/* Mobile Nav */}
       {mobileOpen && (
-        <div className="md:hidden bg-white/80 backdrop-blur-xl border-t border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+        <div className={`md:hidden border-t transition-colors ${
+          scrolled
+            ? 'bg-white/80 backdrop-blur-xl border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)]'
+            : 'bg-white border-gray-100'
+        }`}>
           <nav className="flex flex-col p-4 space-y-3">
             {/* User profile header — shown at top when logged in */}
             {isLoggedIn && user && (

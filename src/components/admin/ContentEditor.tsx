@@ -3,16 +3,18 @@ import { SectionCard, ImageUploader, IconPicker, ProductSelector, ReviewSelector
 import { CategoriesListEditor } from './CategoriesEditor';
 import { ArrowRight } from 'lucide-react';
 
-function TextField({ label, value, onChange, textarea }: { label: string; value: string; onChange: (v: string) => void; textarea?: boolean }) {
+function TextField({ label, value, onChange, textarea, error, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; textarea?: boolean; error?: string; type?: string }) {
   const props = {
     value,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value),
-    className: 'w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30',
+    className: `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${error ? 'border-red-500' : ''}`,
+    type,
   };
   return (
     <div>
       <label className="text-sm font-medium text-[#1A1A1A] block mb-1">{label}</label>
-      {textarea ? <textarea {...props} rows={3} /> : <input {...props} type="text" />}
+      {textarea ? <textarea {...props} rows={3} /> : <input {...props} />}
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
 }
@@ -137,10 +139,11 @@ export function ContentEditor({ onNavigateToPromotions }: { onNavigateToPromotio
 
       <SectionCard title="Social Links">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <TextField label="Instagram URL" value={settings.socialLinks.instagram} onChange={v => updateSettings({ socialLinks: { ...settings.socialLinks, instagram: v } })} />
-          <TextField label="Facebook URL" value={settings.socialLinks.facebook} onChange={v => updateSettings({ socialLinks: { ...settings.socialLinks, facebook: v } })} />
-          <TextField label="Twitter URL" value={settings.socialLinks.twitter} onChange={v => updateSettings({ socialLinks: { ...settings.socialLinks, twitter: v } })} />
-          <TextField label="YouTube URL" value={settings.socialLinks.youtube} onChange={v => updateSettings({ socialLinks: { ...settings.socialLinks, youtube: v } })} />
+          <TextField label="Instagram URL" value={settings.socialLinks.instagram} onChange={v => updateSettings({ socialLinks: { ...settings.socialLinks, instagram: v } })} type="url" />
+          <TextField label="Facebook URL" value={settings.socialLinks.facebook} onChange={v => updateSettings({ socialLinks: { ...settings.socialLinks, facebook: v } })} type="url" />
+          <TextField label="Twitter URL" value={settings.socialLinks.twitter} onChange={v => updateSettings({ socialLinks: { ...settings.socialLinks, twitter: v } })} type="url" />
+          <TextField label="YouTube URL" value={settings.socialLinks.youtube} onChange={v => updateSettings({ socialLinks: { ...settings.socialLinks, youtube: v } })} type="url" />
+          <TextField label="TikTok URL" value={settings.socialLinks.tiktok} onChange={v => updateSettings({ socialLinks: { ...settings.socialLinks, tiktok: v } })} type="url" />
         </div>
       </SectionCard>
     </div>

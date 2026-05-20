@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -166,8 +166,9 @@ function savePaymentMethods(methods: PaymentMethod[]) {
 }
 
 export function MyAccountPage() {
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, updatePassword } = useAuth();
   const { orders, wishlist, addToCart } = useStore();
+  const userOrders = useMemo(() => orders.filter(o => o.customerEmail && user?.email && o.customerEmail.toLowerCase() === user.email.toLowerCase()), [orders, user]);
   const [activeTab, setActiveTab] = useState('profile');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -264,16 +265,21 @@ export function MyAccountPage() {
     const last4 = pmNumber.replace(/\D/g, '').slice(-4);
     if (last4.length !== 4) { toast.error('Invalid card number'); return; }
 
+    let updatedMethods: PaymentMethod[];
     if (editPaymentId) {
-      setPaymentMethods(prev => prev.map(pm => pm.id === editPaymentId ? { ...pm, name: pmName, expiry: pmExpiry, last4 } : pm));
+      updatedMethods = paymentMethods.map(pm => pm.id === editPaymentId ? { ...pm, name: pmName, expiry: pmExpiry, last4 } : pm);
       toast.success('Payment method updated');
     } else {
       const newPm: PaymentMethod = {
         id: 'pm' + Date.now(), type: 'visa', last4, expiry: pmExpiry, name: pmName, isDefault: false,
       };
-      setPaymentMethods(prev => [...prev, newPm]);
+      updatedMethods = [...paymentMethods, newPm];
       toast.success('Payment method added');
     }
+    setPaymentMethods(updatedMethods);
+    // Sync masked payment methods to user profile for admin visibility
+    const masked = updatedMethods.map(pm => `${pm.type.charAt(0).toUpperCase() + pm.type.slice(1)} •••• ${pm.last4}`);
+    updateProfile({ paymentMethods: masked });
     setShowAddPayment(false);
     setEditPaymentId(null);
   }
@@ -292,8 +298,13 @@ export function MyAccountPage() {
     if (!curPass || !newPass || !confirmPass) { toast.error('Please fill in all fields'); return; }
     if (newPass !== confirmPass) { toast.error('New passwords do not match'); return; }
     if (newPass.length < 4) { toast.error('Password must be at least 4 characters'); return; }
-    setCurPass(''); setNewPass(''); setConfirmPass('');
-    toast.success('Password updated successfully');
+    const success = updatePassword(curPass, newPass);
+    if (success) {
+      setCurPass(''); setNewPass(''); setConfirmPass('');
+      toast.success('Password updated successfully');
+    } else {
+      toast.error('Current password is incorrect');
+    }
   }
 
   return (
@@ -344,8 +355,8 @@ export function MyAccountPage() {
                   >
                     <item.icon className="w-4 h-4" />
                     {item.label}
-                    {item.id === 'orders' && orders.length > 0 && (
-                      <span className="ml-auto text-xs bg-[#E8552A] text-white px-1.5 py-0.5 rounded-full">{orders.length}</span>
+                    {item.id === 'orders' && userOrders.length > 0 && (
+                      <span className="ml-auto text-xs bg-[#E8552A] text-white px-1.5 py-0.5 rounded-full">{userOrders.length}</span>
                     )}
                   </button>
                 ))}
@@ -471,7 +482,7 @@ export function MyAccountPage() {
 
                 <div className="grid grid-cols-3 gap-4 mt-6">
                   <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-                    <p className="text-2xl font-bold text-[#1A1A1A]">{orders.length}</p>
+                    <p className="text-2xl font-bold text-[#1A1A1A]">{userOrders.length}</p>
                     <p className="text-xs text-[#6B7280] mt-1">Total Orders</p>
                   </div>
                   <div className="bg-white rounded-xl p-4 shadow-sm text-center">
@@ -479,7 +490,7 @@ export function MyAccountPage() {
                     <p className="text-xs text-[#6B7280] mt-1">Wishlist Items</p>
                   </div>
                   <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-                    <p className="text-2xl font-bold text-[#1A1A1A]">{orders.filter(o => o.status === 'delivered').length}</p>
+                    <p className="text-2xl font-bold text-[#1A1A1A]">{userOrders.filter(o => o.status === 'delivered').length}</p>
                     <p className="text-xs text-[#6B7280] mt-1">Delivered</p>
                   </div>
                 </div>
@@ -493,7 +504,7 @@ export function MyAccountPage() {
                   <div className="p-6 border-b">
                     <h2 className="font-heading text-xl font-bold">Order History</h2>
                   </div>
-                  {orders.length === 0 ? (
+                  {userOrders.length === 0 ? (
                     <div className="p-12 text-center">
                       <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                       <p className="text-[#6B7280]">No orders yet</p>
@@ -501,7 +512,7 @@ export function MyAccountPage() {
                     </div>
                   ) : (
                     <div className="divide-y">
-                      {orders.map(order => {
+                      {userOrders.map(order => {
                         const status = STATUS_CONFIG[order.status];
                         return (
                           <div key={order.id} className="p-6 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedOrderId(order.id)}>

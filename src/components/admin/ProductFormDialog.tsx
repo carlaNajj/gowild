@@ -44,6 +44,18 @@ export function ProductFormDialog({ open, onOpenChange, product, onSave }: Produ
   const [form, setForm] = useState<Partial<Product>>(EMPTY_PRODUCT);
   const [colorInput, setColorInput] = useState('');
   const [sizeInput, setSizeInput] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const next: Record<string, string> = {};
+    if (!form.name?.trim()) next.name = 'Product name is required';
+    if (form.price === undefined || form.price <= 0) next.price = 'Price must be greater than 0';
+    if (form.stock === undefined || form.stock < 0) next.stock = 'Stock cannot be negative';
+    if (!form.image?.trim()) next.image = 'Product image is required';
+    if (!form.description?.trim()) next.description = 'Description is required';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
 
   useEffect(() => {
     if (product) {
@@ -51,6 +63,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSave }: Produ
     } else {
       setForm(EMPTY_PRODUCT);
     }
+    setErrors({});
   }, [product, open]);
 
   const updateField = <K extends keyof Product>(field: K, value: Product[K]) => {
@@ -59,10 +72,11 @@ export function ProductFormDialog({ open, onOpenChange, product, onSave }: Produ
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.image || form.price === undefined) return;
+    if (!validate()) return;
     onSave(form);
     onOpenChange(false);
     setForm(EMPTY_PRODUCT);
+    setErrors({});
   };
 
   const addColor = () => {
@@ -118,11 +132,11 @@ export function ProductFormDialog({ open, onOpenChange, product, onSave }: Produ
               <input
                 type="text"
                 value={form.name || ''}
-                onChange={e => updateField('name', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
+                onChange={e => { updateField('name', e.target.value); if (errors.name) setErrors(prev => { const n = { ...prev }; delete n.name; return n; }); }}
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors.name ? 'border-red-500' : ''}`}
                 placeholder="e.g. Summit Seeker Pin"
-                required
               />
+              {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
             </div>
 
             <div>
@@ -143,10 +157,10 @@ export function ProductFormDialog({ open, onOpenChange, product, onSave }: Produ
                 step="0.01"
                 min="0"
                 value={form.price || ''}
-                onChange={e => updateField('price', parseFloat(e.target.value))}
-                className="w-full px-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-                required
+                onChange={e => { updateField('price', parseFloat(e.target.value)); if (errors.price) setErrors(prev => { const n = { ...prev }; delete n.price; return n; }); }}
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors.price ? 'border-red-500' : ''}`}
               />
+              {errors.price && <p className="text-xs text-red-500 mt-1">{errors.price}</p>}
             </div>
 
             <div>
@@ -167,30 +181,31 @@ export function ProductFormDialog({ open, onOpenChange, product, onSave }: Produ
                 type="number"
                 min="0"
                 value={form.stock || ''}
-                onChange={e => updateField('stock', parseInt(e.target.value))}
-                className="w-full px-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
-                required
+                onChange={e => { updateField('stock', parseInt(e.target.value)); if (errors.stock) setErrors(prev => { const n = { ...prev }; delete n.stock; return n; }); }}
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors.stock ? 'border-red-500' : ''}`}
               />
+              {errors.stock && <p className="text-xs text-red-500 mt-1">{errors.stock}</p>}
             </div>
 
             <div className="sm:col-span-2">
               <ImageUploader
                 label="Product Image *"
                 value={form.image || ''}
-                onChange={v => updateField('image', v)}
+                onChange={v => { updateField('image', v); if (errors.image) setErrors(prev => { const n = { ...prev }; delete n.image; return n; }); }}
               />
+              {errors.image && <p className="text-xs text-red-500 mt-1">{errors.image}</p>}
             </div>
 
             <div className="sm:col-span-2">
               <label className="text-sm font-medium mb-1.5 block">Description *</label>
               <textarea
                 value={form.description || ''}
-                onChange={e => updateField('description', e.target.value)}
+                onChange={e => { updateField('description', e.target.value); if (errors.description) setErrors(prev => { const n = { ...prev }; delete n.description; return n; }); }}
                 rows={3}
-                className="w-full px-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30"
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 ${errors.description ? 'border-red-500' : ''}`}
                 placeholder="Product description..."
-                required
               />
+              {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description}</p>}
             </div>
 
             <div>
