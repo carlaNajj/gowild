@@ -67,3 +67,99 @@ Create `public_html/.htaccess`:
 ```
 
 This ensures React Router works correctly when refreshing pages or accessing deep links like `/admin`.
+
+---
+
+## Fly.io Deployment
+
+The project includes ready-to-use Fly.io configuration files: `Dockerfile`, `nginx.conf`, `fly.toml`, and `.dockerignore`.
+
+### Prerequisites
+
+1. Install `flyctl`:
+   ```powershell
+   # Windows (PowerShell)
+   winget install FlyIO.flyctl
+   # Or via PowerShell script:
+   pwsh -Command "iwr https://fly.io/install.ps1 -useb | iex"
+   ```
+
+2. Login to Fly.io:
+   ```bash
+   fly auth login
+   ```
+
+### Deploy
+
+1. **Launch the app** (first time only):
+   ```bash
+   fly launch
+   ```
+   - This will detect the `Dockerfile` and create the app
+   - A `fly.toml` is already provided; you can accept or customize settings
+
+2. **Deploy updates**:
+   ```bash
+   fly deploy
+   ```
+
+3. **Open the app**:
+   ```bash
+   fly apps open
+   ```
+
+### SSH Access (Debug Only)
+
+Connect to a running machine for debugging:
+```bash
+fly ssh console
+```
+
+Run a command without entering an interactive shell:
+```bash
+fly ssh console -C "ls -la /usr/share/nginx/html"
+```
+
+Transfer files via SFTP:
+```bash
+fly ssh sftp shell
+```
+
+> **Note:** SSH only works while machines are running. If `auto_stop_machines` is enabled, wake the app first by visiting its URL or run `fly m start`.
+
+### Fly.io Configuration Details
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile` | Multi-stage build: Node.js builds the app, nginx serves static files |
+| `nginx.conf` | SPA fallback routing (`try_files`), gzip, caching headers |
+| `fly.toml` | Fly app config: port 80, HTTPS, auto-stop/start machines |
+| `.dockerignore` | Excludes `node_modules`, `.git`, local env files from build context |
+
+### Scaling
+
+Scale to 2 machines for high availability:
+```bash
+fly scale count 2
+```
+
+Scale VM size:
+```bash
+fly scale vm shared-cpu-1x --memory 512
+```
+
+### Custom Domain
+
+```bash
+fly certs create yourdomain.com
+```
+
+Then point your DNS CNAME record to `gowild.fly.dev`.
+
+### Monitoring
+
+```bash
+fly status          # App status
+fly logs            # Live logs
+fly metrics         # Resource usage
+```
