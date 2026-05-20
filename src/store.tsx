@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { useSiteSettings } from '@/lib/settings-context';
+import * as api from '@/lib/api';
 
 export interface Review {
   id: string;
@@ -37,6 +38,8 @@ export interface Product {
   createdAt?: string;
   status?: 'active' | 'inactive';
 }
+
+export type ProductInput = Omit<Product, 'id'>;
 
 export interface CartItem {
   product: Product;
@@ -160,9 +163,6 @@ export const PRODUCTS = ALL_PRODUCTS;
 
 export const CATEGORIES = ['Pins', 'Stickers', 'Neck Warmers', 'Picnic Mats', 'Accessories'];
 
-// Reviews data
-const REVIEWS_KEY = 'gowild_reviews';
-
 const DEFAULT_REVIEWS: Review[] = [
   // Pin reviews
   { id: 'r1', productId: 'p1', productName: 'Summit Seeker Pin', userName: 'Sarah M.', date: '2026-03-15', rating: 5, text: 'Absolutely love this pin! The gold plating is gorgeous and the detail is incredible. Already got compliments on my backpack.', approved: false },
@@ -189,23 +189,9 @@ const DEFAULT_REVIEWS: Review[] = [
   { id: 'r18', productId: 'p8', productName: 'Mountain Buck Pin', userName: 'ArtLover', date: '2026-04-18', rating: 5, text: 'The antler detail is incredible. You can see the tiny mountain motifs. Best quality pin I have ever purchased.', approved: false },
 ];
 
-function loadReviews(): Review[] {
-  try {
-    const raw = localStorage.getItem(REVIEWS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return [...DEFAULT_REVIEWS];
-}
-
-function saveReviews(reviews: Review[]) {
-  localStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
-}
-
 // Wishlist helpers
 const WISHLIST_KEY = 'gowild_wishlist';
 const CART_KEY = 'gowild_cart';
-const PRODUCTS_KEY = 'gowild_products';
-const ORDERS_KEY = 'gowild_orders';
 
 function loadWishlist(): string[] {
   try {
@@ -229,52 +215,6 @@ function loadCart(): CartItem[] {
 
 function saveCart(cart: CartItem[]) {
   localStorage.setItem(CART_KEY, JSON.stringify(cart));
-}
-
-function loadProducts(): Product[] {
-  try {
-    const raw = localStorage.getItem(PRODUCTS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return [...ALL_PRODUCTS];
-}
-
-function saveProducts(products: Product[]) {
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-}
-
-function loadOrders(): Order[] {
-  try {
-    const raw = localStorage.getItem(ORDERS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return [
-    {
-      id: 'GW-2026-8839', date: '2026-04-20',
-      items: [{ product: DEFAULT_PIN_PRODUCTS[1], quantity: 3, bundlePrice: 10 }, { product: DEFAULT_STICKER_PRODUCTS[0], quantity: 1 }],
-      total: 22.99, status: 'delivered',
-      shippingAddress: '123 Mountain Ridge Rd, Boulder, CO 80301',
-      customerName: 'Alex Walker', customerEmail: 'alex@gowild.com',
-    },
-    {
-      id: 'GW-2026-8840', date: '2026-04-22',
-      items: [{ product: DEFAULT_PICNIC_MAT_PRODUCT, quantity: 1, color: 'Red' }],
-      total: 34.99, status: 'shipped',
-      shippingAddress: '123 Mountain Ridge Rd, Boulder, CO 80301',
-      customerName: 'Alex Walker', customerEmail: 'alex@gowild.com',
-    },
-    {
-      id: 'GW-2026-8841', date: '2026-04-25',
-      items: [{ product: DEFAULT_PIN_PRODUCTS[0], quantity: 6, bundlePrice: 20 }, { product: DEFAULT_ACCESSORY_PRODUCTS[1], quantity: 1 }],
-      total: 44.99, status: 'pending',
-      shippingAddress: '123 Mountain Ridge Rd, Boulder, CO 80301',
-      customerName: 'Alex Walker', customerEmail: 'alex@gowild.com',
-    },
-  ];
-}
-
-function saveOrders(orders: Order[]) {
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
 }
 
 interface StoreContextType {
@@ -316,25 +256,28 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Product[]>(loadProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>(() => {
     const saved = loadCart();
-    return saved.length > 0 ? saved : [
-      { product: DEFAULT_PIN_PRODUCTS[0], quantity: 2, color: 'Gold' },
-      { product: DEFAULT_NECK_WARMER_PRODUCTS[0], quantity: 1, color: 'Mountain Blue', size: 'One Size' },
-      { product: DEFAULT_ACCESSORY_PRODUCTS[0], quantity: 1 },
-    ];
+    return saved;
   });
 
   const [wishlist, setWishlist] = useState<string[]>(() => loadWishlist());
-  const [reviews, setReviews] = useState<Review[]>(() => loadReviews());
-  const [orders, setOrders] = useState<Order[]>(loadOrders);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [, setLoaded] = useState(false);
+
+  // Load data from API on mount
+  useEffect(() => {
+    Promise.all([
+      api.getProducts().then(setProducts).catch(() => setProducts([...ALL_PRODUCTS])),
+      api.getOrders().then(setOrders).catch(() => {}),
+      api.getReviews().then(setReviews).catch(() => setReviews([...DEFAULT_REVIEWS])),
+    ]).finally(() => setLoaded(true));
+  }, []);
 
   useEffect(() => { saveCart(cart); }, [cart]);
   useEffect(() => { saveWishlist(wishlist); }, [wishlist]);
-  useEffect(() => { saveReviews(reviews); }, [reviews]);
-  useEffect(() => { saveProducts(products); }, [products]);
-  useEffect(() => { saveOrders(orders); }, [orders]);
 
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
 
@@ -413,25 +356,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addOrder = useCallback((order: Order) => {
     setOrders(prev => [order, ...prev]);
+    api.createOrder(order).catch(() => {});
   }, []);
 
   const updateOrderStatus = useCallback((id: string, status: Order['status']) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+    api.updateOrderStatus(id, status).catch(() => {});
   }, []);
 
   const cancelOrder = useCallback((id: string) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' as const } : o));
+    api.updateOrderStatus(id, 'cancelled').catch(() => {});
   }, []);
 
   const refundOrder = useCallback((id: string) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'refunded' as const } : o));
+    api.updateOrderStatus(id, 'refunded').catch(() => {});
   }, []);
 
   const addReview = useCallback((review: Omit<Review, 'id'>) => {
-    setReviews(prev => {
-      const newReview: Review = { ...review, id: `r_${Date.now()}`, approved: false };
-      return [newReview, ...prev];
-    });
+    const newReview: Review = { ...review, id: `r_${Date.now()}`, approved: false };
+    setReviews(prev => [newReview, ...prev]);
+    api.createReview(newReview).catch(() => {});
   }, []);
 
   const getProductReviews = useCallback((productId: string): Review[] => {
@@ -440,10 +386,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteReview = useCallback((id: string) => {
     setReviews(prev => prev.filter(r => r.id !== id));
+    api.deleteReview(id).catch(() => {});
   }, []);
 
   const toggleReviewApproval = useCallback((id: string) => {
     setReviews(prev => prev.map(r => r.id === id ? { ...r, approved: !r.approved } : r));
+    api.approveReview(id).catch(() => {});
   }, []);
 
   const addProduct = useCallback((product: Omit<Product, 'id'>) => {
@@ -453,20 +401,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       status: product.status || 'active',
     };
     setProducts(prev => [...prev, newProduct]);
+    api.createProduct(newProduct).catch(() => {});
   }, []);
 
   const updateProduct = useCallback((id: string, updates: Partial<Product>) => {
     setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    api.updateProduct(id, updates).catch(() => {});
   }, []);
 
   const deleteProduct = useCallback((id: string) => {
     setProducts(prev => prev.filter(p => p.id !== id));
+    api.deleteProduct(id).catch(() => {});
   }, []);
 
   const toggleProductStatus = useCallback((id: string) => {
     setProducts(prev => prev.map(p => {
       if (p.id === id) {
-        return { ...p, status: (p.status === 'active' ? 'inactive' : 'active') as 'active' | 'inactive' };
+        const newStatus = (p.status === 'active' ? 'inactive' : 'active') as 'active' | 'inactive';
+        api.updateProduct(id, { status: newStatus }).catch(() => {});
+        return { ...p, status: newStatus };
       }
       return p;
     }));

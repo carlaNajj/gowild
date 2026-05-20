@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import * as api from '@/lib/api';
 
 export interface User {
   id: string;
@@ -36,7 +37,6 @@ export interface GuestInfo {
 
 const WISHLIST_KEY = 'gowild_wishlist';
 const USER_KEY = 'gowild_user';
-const USERS_KEY = 'gowild_users';
 
 interface AuthContextType {
   user: User | null;
@@ -114,48 +114,23 @@ const DEMO_STAFF: User = {
   password: 'staff1234',
 };
 
-function loadUsers(): User[] {
-  const defaults = [DEMO_USER, DEMO_ADMIN, DEMO_STAFF];
-  try {
-    const raw = localStorage.getItem(USERS_KEY);
-    if (raw) {
-      const parsed: User[] = JSON.parse(raw);
-      // Merge with defaults: keep saved users but ensure default users have all fields
-      const merged = defaults.map(def => {
-        const saved = parsed.find(u => u.id === def.id);
-        return saved ? { ...def, ...saved } : def;
-      });
-      // Add any non-default users from localStorage
-      const nonDefault = parsed.filter(u => !defaults.some(d => d.id === u.id));
-      return [...merged, ...nonDefault];
-    }
-  } catch { /* ignore */ }
-  return defaults;
-}
-
-function saveUsers(users: User[]) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
+const DEFAULT_USERS = [DEMO_USER, DEMO_ADMIN, DEMO_STAFF];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [guestInfo, setGuestInfoState] = useState<GuestInfo | null>(null);
-  const [users, setUsers] = useState<User[]>(loadUsers);
+  const [users, setUsers] = useState<User[]>(DEFAULT_USERS);
 
-  // Load auth state from localStorage on mount
+  // Load auth state from localStorage + API on mount
   useEffect(() => {
     const savedUser = localStorage.getItem(USER_KEY);
     if (savedUser) {
       try { setUser(JSON.parse(savedUser)); } catch { /* ignore */ }
     }
+    api.getUsers().then(setUsers).catch(() => setUsers(DEFAULT_USERS));
   }, []);
-
-  // Persist users array whenever it changes
-  useEffect(() => {
-    saveUsers(users);
-  }, [users]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     if (email.includes('@') && password.length >= 4) {
@@ -226,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (exists) return prev;
         return [...prev, newUser];
       });
+      api.createUser(newUser).catch(() => {});
       return true;
     }
     return false;
@@ -264,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updated = { ...prev, ...data };
       localStorage.setItem(USER_KEY, JSON.stringify(updated));
       setUsers(usersPrev => usersPrev.map(u => u.id === prev.id ? updated : u));
+      api.updateUser(prev.id, data).catch(() => {});
       return updated;
     });
   }, []);
@@ -276,6 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(updated);
     localStorage.setItem(USER_KEY, JSON.stringify(updated));
     setUsers(prev => prev.map(u => u.id === user.id ? updated : u));
+    api.updateUser(user.id, { password: newPassword }).catch(() => {});
     return true;
   }, [user]);
 
@@ -283,11 +261,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsers(prev => prev.map(u => {
       if (u.id === id) {
         const updated = { ...u, status: (u.status === 'active' ? 'inactive' : 'active') as 'active' | 'inactive' };
-        // If toggling current user, update session too
         if (user?.id === id) {
           setUser(updated);
           localStorage.setItem(USER_KEY, JSON.stringify(updated));
         }
+        api.updateUser(id, { status: updated.status }).catch(() => {});
         return updated;
       }
       return u;
@@ -296,6 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUserRole = useCallback((id: string, role: 'admin' | 'staff' | 'customer') => {
     setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u));
+    api.updateUser(id, { role }).catch(() => {});
   }, []);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'staff';

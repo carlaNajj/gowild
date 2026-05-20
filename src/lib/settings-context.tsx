@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import * as api from '@/lib/api';
 
 /* ------------------------------------------------------------------ */
 /*  Data Interfaces                                                    */
@@ -474,11 +475,25 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SiteSettings>(loadSettings);
+  const [, setLoaded] = useState(false);
+
+  // Load settings from API on mount
+  useEffect(() => {
+    api.getSettings()
+      .then(data => {
+        const merged = deepMerge(DEFAULT_SETTINGS, data);
+        setSettings(merged);
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
 
   const updateSettings = useCallback((updates: Partial<SiteSettings>) => {
     setSettings(prev => {
       const next = { ...prev, ...updates };
       saveSettings(next);
+      api.updateSettings(next).catch(() => {});
       return next;
     });
   }, []);
@@ -487,6 +502,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const fresh = structuredClone(DEFAULT_SETTINGS);
     setSettings(fresh);
     saveSettings(fresh);
+    api.updateSettings(fresh).catch(() => {});
   }, []);
 
   return (
