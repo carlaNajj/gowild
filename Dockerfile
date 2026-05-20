@@ -1,26 +1,25 @@
-# Build stage
-FROM node:20-alpine AS build
+# Single-stage build — Node.js with build tools for better-sqlite3
+FROM node:20-slim
 WORKDIR /app
 
-# Copy dependency files first for better layer caching
+# Install build tools for better-sqlite3 native compilation
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files
 COPY package*.json ./
 RUN npm ci
 
-# Copy source and build
+# Copy source and build frontend
 COPY . .
 RUN npm run build
 
-# Serve stage — lightweight nginx image
-FROM nginx:alpine
+# Create data directory for SQLite (will be mounted as volume on Fly.io)
+RUN mkdir -p /data
 
-# Copy built static files to nginx web root
-COPY --from=build /app/dist /usr/share/nginx/html
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV DB_DIR=/data
 
-# Copy nginx config with SPA fallback
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 8080
 
-# Expose port 80 (nginx default)
-EXPOSE 80
-
-# Start nginx in foreground
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npx", "tsx", "server/index.ts"]

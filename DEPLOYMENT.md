@@ -108,6 +108,10 @@ The project includes ready-to-use Fly.io configuration files: `Dockerfile`, `ngi
    fly apps open
    ```
 
+### Live URL
+
+**https://gowild.fly.dev**
+
 ### SSH Access (Debug Only)
 
 Connect to a running machine for debugging:
