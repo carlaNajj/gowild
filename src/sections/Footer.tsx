@@ -14,7 +14,7 @@ export function Footer() {
   ].filter(s => s.url);
 
   return (
-    <footer className="bg-[#1A4A52] text-white">
+    <footer className="bg-[#1A4A52] text-white pb-16 md:pb-0">
       {/* Main Footer */}
       <div className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,7 +42,7 @@ export function Footer() {
             </div>
 
             {/* Shop */}
-            <div>
+            <div className="hidden md:block">
               <h4 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider mb-3 md:mb-4">Shop</h4>
               <ul className="space-y-2.5">
                 <li><Link to="/products" className="text-white/70 text-xs md:text-sm hover:text-[#E8552A] transition-colors">All Products</Link></li>
@@ -60,7 +60,7 @@ export function Footer() {
             </div>
 
             {/* Company */}
-            <div>
+            <div className="hidden md:block">
               <h4 className="font-heading font-semibold text-xs md:text-sm uppercase tracking-wider mb-3 md:mb-4">Company</h4>
               <ul className="space-y-2.5">
                 {['About Us', 'Contact', 'Shipping Info', 'Returns', 'FAQ'].map((item) => (

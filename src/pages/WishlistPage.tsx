@@ -65,14 +65,14 @@ export function WishlistPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
+      <div className="flex flex-col items-center sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="text-center">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#1A1A1A]">My Wishlist</h1>
           <p className="text-gray-500 mt-1">{wishlistProducts.length} {wishlistProducts.length === 1 ? 'item' : 'items'} saved</p>
         </div>
         <button
           onClick={handleAddAllToCart}
-          className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#1A5A6B] text-white rounded-full font-medium hover:bg-[#1A8DA3] transition-colors self-start sm:self-auto"
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#1A5A6B] text-white rounded-full font-medium hover:bg-[#1A8DA3] transition-colors self-center sm:self-auto"
         >
           <ShoppingCart className="w-4 h-4" /> Add All to Cart
         </button>

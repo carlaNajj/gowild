@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import * as api from '@/lib/api';
+import { usePolling } from '@/hooks/usePolling';
 
 /* ------------------------------------------------------------------ */
 /*  Data Interfaces                                                    */
@@ -488,6 +489,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);
+
+  // Poll for live settings updates (admin changes)
+  usePolling(() => {
+    api.getSettings()
+      .then(data => {
+        const merged = deepMerge(DEFAULT_SETTINGS, data);
+        setSettings(merged);
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+      })
+      .catch(() => {});
+  }, 3000);
 
   const updateSettings = useCallback((updates: Partial<SiteSettings>) => {
     setSettings(prev => {

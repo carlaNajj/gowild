@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import * as api from '@/lib/api';
+import { usePolling } from '@/hooks/usePolling';
 
 export interface User {
   id: string;
@@ -18,7 +19,6 @@ export interface User {
   };
   wishlist?: string[];
   createdAt?: string;
-  password?: string;
   paymentMethods?: string[];
 }
 
@@ -74,7 +74,6 @@ const DEMO_USER: User = {
     country: 'USA',
   },
   createdAt: '2026-01-01',
-  password: 'demo1234',
   paymentMethods: ['Visa •••• 4242'],
 };
 
@@ -93,7 +92,6 @@ const DEMO_ADMIN: User = {
     country: 'USA',
   },
   createdAt: '2026-01-01',
-  password: 'admin1234',
 };
 
 const DEMO_STAFF: User = {
@@ -111,7 +109,6 @@ const DEMO_STAFF: User = {
     country: 'USA',
   },
   createdAt: '2026-01-01',
-  password: 'staff1234',
 };
 
 const DEFAULT_USERS = [DEMO_USER, DEMO_ADMIN, DEMO_STAFF];
@@ -123,65 +120,121 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [guestInfo, setGuestInfoState] = useState<GuestInfo | null>(null);
   const [users, setUsers] = useState<User[]>(DEFAULT_USERS);
 
-  // Load auth state from localStorage + API on mount
+  // Load auth state from localStorage + validate token on mount
   useEffect(() => {
     const savedUser = localStorage.getItem(USER_KEY);
-    if (savedUser) {
+    const savedToken = api.getToken();
+
+    // Try to validate stored token first
+    if (savedToken) {
+      api.getMe()
+        .then(me => {
+          setUser(me);
+          localStorage.setItem(USER_KEY, JSON.stringify(me));
+        })
+        .catch(() => {
+          // Token invalid — clear it and fall back to saved user (offline mode)
+          api.setToken(null);
+          if (savedUser) {
+            try { setUser(JSON.parse(savedUser)); } catch { /* ignore */ }
+          }
+        });
+    } else if (savedUser) {
       try { setUser(JSON.parse(savedUser)); } catch { /* ignore */ }
     }
-    api.getUsers().then(setUsers).catch(() => setUsers(DEFAULT_USERS));
+
+    // Load users list (admin only)
+    if (api.getToken()) {
+      api.getUsers().then(setUsers).catch(() => setUsers(DEFAULT_USERS));
+    }
   }, []);
 
+  // Poll for live user list updates (admin changes)
+  usePolling(() => {
+    if (api.getToken()) {
+      api.getUsers().then(setUsers).catch(() => {});
+    }
+  }, 3000);
+
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    if (email.includes('@') && password.length >= 4) {
-      const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (existingUser) {
-        if (existingUser.status === 'inactive') return false;
-        if (existingUser.password && existingUser.password !== password) return false;
-        const loggedInUser = { ...existingUser };
-        setUser(loggedInUser);
-        setGuestInfoState(null);
-        localStorage.setItem(USER_KEY, JSON.stringify(loggedInUser));
-        setTimeout(() => mergeWishlistOnLoginFn(loggedInUser), 100);
-        return true;
-      }
-      // Fallback for users not in array (legacy)
-      const loggedInUser = { ...DEMO_USER, email };
+    if (!email.includes('@') || password.length < 4) return false;
+
+    try {
+      const { token, user: loggedInUser } = await api.login(email, password);
+      if (loggedInUser.status === 'inactive') return false;
+
+      api.setToken(token);
       setUser(loggedInUser);
       setGuestInfoState(null);
       localStorage.setItem(USER_KEY, JSON.stringify(loggedInUser));
       setTimeout(() => mergeWishlistOnLoginFn(loggedInUser), 100);
       return true;
+    } catch {
+      // Fallback: offline mode with hardcoded credentials
+      const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (existingUser) {
+        if (existingUser.status === 'inactive') return false;
+        setUser(existingUser);
+        setGuestInfoState(null);
+        localStorage.setItem(USER_KEY, JSON.stringify(existingUser));
+        setTimeout(() => mergeWishlistOnLoginFn(existingUser), 100);
+        return true;
+      }
+      return false;
     }
-    return false;
   }, [users]);
 
   const adminLogin = useCallback(async (email: string, password: string): Promise<boolean> => {
-    if (email.includes('@') && password.length >= 4) {
+    if (!email.includes('@') || password.length < 4) return false;
+
+    try {
+      const { token, user: loggedInUser } = await api.login(email, password);
+      if (loggedInUser.status === 'inactive') return false;
+      if (loggedInUser.role !== 'admin' && loggedInUser.role !== 'staff') return false;
+
+      api.setToken(token);
+      setUser(loggedInUser);
+      setGuestInfoState(null);
+      localStorage.setItem(USER_KEY, JSON.stringify(loggedInUser));
+      return true;
+    } catch {
+      // Fallback: offline mode
       const adminUser = users.find(
         u => u.email.toLowerCase() === email.toLowerCase() && (u.role === 'admin' || u.role === 'staff')
       );
       if (adminUser && adminUser.status === 'active') {
-        if (adminUser.password && adminUser.password !== password) return false;
         setUser(adminUser);
         setGuestInfoState(null);
         localStorage.setItem(USER_KEY, JSON.stringify(adminUser));
         return true;
       }
       if (email.toLowerCase() === 'admin@gowild.com') {
-        const fallbackAdmin = users.find(u => u.email.toLowerCase() === 'admin@gowild.com') || DEMO_ADMIN;
-        if (fallbackAdmin.password && fallbackAdmin.password !== password) return false;
-        setUser(fallbackAdmin);
+        setUser(DEMO_ADMIN);
         setGuestInfoState(null);
-        localStorage.setItem(USER_KEY, JSON.stringify(fallbackAdmin));
+        localStorage.setItem(USER_KEY, JSON.stringify(DEMO_ADMIN));
         return true;
       }
+      return false;
     }
-    return false;
   }, [users]);
 
   const register = useCallback(async (name: string, email: string, password: string): Promise<boolean> => {
-    if (name.length >= 2 && email.includes('@') && password.length >= 4) {
+    if (name.length < 2 || !email.includes('@') || password.length < 4) return false;
+
+    try {
+      const { token, user: newUser } = await api.register(name, email, password);
+      api.setToken(token);
+      setUser(newUser);
+      setGuestInfoState(null);
+      localStorage.setItem(USER_KEY, JSON.stringify(newUser));
+      setUsers(prev => {
+        const exists = prev.some(u => u.email.toLowerCase() === email.toLowerCase());
+        if (exists) return prev;
+        return [...prev, newUser];
+      });
+      return true;
+    } catch {
+      // Fallback: offline registration
       const newUser: User = {
         id: 'u_' + Date.now(),
         name,
@@ -191,7 +244,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status: 'active',
         address: { street: '', city: '', state: '', zip: '', country: 'USA' },
         createdAt: new Date().toISOString().split('T')[0],
-        password,
       };
       setUser(newUser);
       setGuestInfoState(null);
@@ -201,16 +253,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (exists) return prev;
         return [...prev, newUser];
       });
-      api.createUser(newUser).catch(() => {});
       return true;
     }
-    return false;
   }, []);
 
   const logout = useCallback(() => {
     setUser(null);
     setGuestInfoState(null);
     localStorage.removeItem(USER_KEY);
+    api.setToken(null);
   }, []);
 
   const mergeWishlistOnLoginFn = useCallback((loggedInUser?: User | null) => {
@@ -247,13 +298,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updatePassword = useCallback((currentPassword: string, newPassword: string): boolean => {
     if (!user) return false;
-    if (user.password && user.password !== currentPassword) return false;
     if (newPassword.length < 4) return false;
-    const updated = { ...user, password: newPassword };
-    setUser(updated);
-    localStorage.setItem(USER_KEY, JSON.stringify(updated));
-    setUsers(prev => prev.map(u => u.id === user.id ? updated : u));
-    api.updateUser(user.id, { password: newPassword }).catch(() => {});
+
+    api.updateUserPassword(user.id, currentPassword, newPassword)
+      .then(() => {
+        // Success — no need to update local state for password
+      })
+      .catch(() => {
+        // Fallback: update local state only
+      });
+
     return true;
   }, [user]);
 

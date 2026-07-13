@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, Menu, X, Clock, Trash2, ArrowUpRight, Heart, Package, LogOut } from 'lucide-react';
+import { Search, ShoppingCart, X, Clock, Trash2, ArrowUpRight, Heart, Package, LogOut } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { useStore } from '@/store';
 import { useSiteSettings, getBundleText } from '@/lib/settings-context';
+import { useMobileNav } from '@/lib/mobile-nav-context';
 import { toast } from 'sonner';
 import {
   Sheet,
@@ -41,13 +42,13 @@ function clearSearchHistory() {
 }
 
 export function Navbar() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const { searchOpen, setSearchOpen, mobileMenuOpen, setMobileMenuOpen } = useMobileNav();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, isLoggedIn, logout } = useAuth();
@@ -102,7 +103,10 @@ export function Navbar() {
   // Click outside to close search
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inSearchRef = searchRef.current?.contains(target) ?? false;
+      const inMobileRef = mobileSearchRef.current?.contains(target) ?? false;
+      if (!inSearchRef && !inMobileRef) {
         setSearchOpen(false);
         setSearchQuery('');
       }
@@ -172,6 +176,7 @@ export function Navbar() {
   }
 
   return (
+    <>
     <header className="sticky top-0 z-50 bg-white/60 backdrop-blur-[16px] border-b border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.08)] h-[72px]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
         {/* Logo */}
@@ -199,137 +204,101 @@ export function Navbar() {
           <div className="relative" ref={searchRef}>
             <button
               onClick={() => setSearchOpen(!searchOpen)}
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors hidden md:block"
               aria-label="Search"
             >
               {searchOpen ? <X className="w-5 h-5 text-[#1A1A1A]" /> : <Search className="w-5 h-5 text-[#1A1A1A]" />}
             </button>
 
-            {/* Search Dropdown */}
+            {/* Desktop Dropdown */}
             {searchOpen && (
-              <div className="absolute right-0 top-full mt-2 w-[340px] sm:w-[420px] bg-white/80 backdrop-blur-xl rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 overflow-hidden">
-                <form onSubmit={handleSearchSubmit} className="p-3 border-b">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Search pins, stickers, neck warmers..."
-                      className="w-full pl-9 pr-4 py-2.5 rounded-lg border bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 focus:border-[#1A5A6B]"
-                    />
-                  </div>
-                </form>
-
-                <div className="max-h-[420px] overflow-y-auto">
-                  {/* Search Results */}
-                  {searchQuery.length >= 2 && searchResults.length > 0 && (
-                    <>
-                      <div className="px-3 py-2">
-                        <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                          Results for &ldquo;{searchQuery}&rdquo;
-                        </p>
-                      </div>
-                      {searchResults.map(product => (
-                        <button
-                          key={product.id}
-                          onClick={() => handleResultClick(product.id)}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors text-left"
-                        >
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-12 h-12 object-cover rounded-lg flex-shrink-0 bg-gray-100"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-[#1A1A1A] truncate">{product.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-xs text-[#6B7280]">{product.category}</span>
-                              <span className="text-xs text-[#1A5A6B] font-semibold">${product.price.toFixed(2)}</span>
-                              {product.isPin && (
-                                <span className="text-[10px] bg-[#E8552A]/10 text-[#E8552A] px-1.5 py-0.5 rounded-full">3/$10</span>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </>
-                  )}
-
-                  {/* No Results */}
-                  {searchQuery.length >= 2 && searchResults.length === 0 && (
-                    <div className="p-6 text-center">
-                      <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500 font-medium">No results found</p>
-                      <p className="text-xs text-gray-400 mt-1">Try &quot;pin&quot;, &quot;sticker&quot;, or &quot;neck&quot;</p>
+              <div className="absolute right-0 top-full mt-2 w-[420px] bg-white rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-100 overflow-hidden hidden md:block"
+              >
+                  <form onSubmit={handleSearchSubmit} className="p-3 border-b">
+                    <div className="relative">
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Search products, brands..."
+                        className="w-full pl-4 pr-12 py-3 rounded-xl border bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 focus:border-[#1A5A6B]"
+                      />
+                      <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#1A5A6B] rounded-lg flex items-center justify-center text-white" aria-label="Search"><Search className="w-4 h-4" /></button>
                     </div>
-                  )}
+                  </form>
 
-                  {/* Recent Searches */}
-                  {searchQuery.length < 2 && searchHistory.length > 0 && (
-                    <>
-                      <div className="px-3 py-2 flex items-center justify-between">
-                        <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                          Recent Searches
-                        </p>
-                        <button
-                          onClick={handleClearHistory}
-                          className="text-xs text-[#E85D4E] hover:underline flex items-center gap-1"
-                        >
-                          <Trash2 className="w-3 h-3" /> Clear
-                        </button>
+                  <div className="max-h-[420px] overflow-y-auto">
+                    {searchQuery.length >= 2 && searchResults.length > 0 && (
+                      <>
+                        <div className="px-3 py-2">
+                          <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wider">Results for &ldquo;{searchQuery}&rdquo;</p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 px-3">
+                          {searchResults.map(product => (
+                            <button key={product.id} onClick={() => handleResultClick(product.id)} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border border-gray-100">
+                              <img src={product.image} alt={product.name} className="w-14 h-14 object-cover rounded-lg flex-shrink-0 bg-gray-100" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-[#1A1A1A] truncate">{product.name}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs text-[#6B7280]">{product.category}</span>
+                                  <span className="text-xs text-[#1A5A6B] font-semibold">${product.price.toFixed(2)}</span>
+                                  {product.isPin && <span className="text-[10px] bg-[#E8552A]/10 text-[#E8552A] px-1.5 py-0.5 rounded-full">3/$10</span>}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {searchQuery.length >= 2 && searchResults.length === 0 && (
+                      <div className="py-8 text-center">
+                        <Search className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500 font-medium">No results found</p>
+                        <p className="text-xs text-gray-400 mt-1">Try &quot;pin&quot;, &quot;sticker&quot;, or &quot;neck&quot;</p>
                       </div>
-                      {searchHistory.map((query, i) => (
-                        <button
-                          key={`${query}-${i}`}
-                          onClick={() => handleHistoryClick(query)}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors text-left group"
-                        >
-                          <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          <span className="text-sm text-[#1A1A1A] flex-1">{query}</span>
-                          <ArrowUpRight className="w-4 h-4 text-gray-300 group-hover:text-[#1A5A6B] transition-colors" />
-                        </button>
-                      ))}
-                    </>
-                  )}
-
-                  {/* Empty state when no history */}
-                  {searchQuery.length < 2 && searchHistory.length === 0 && (
-                    <div className="p-6 text-center">
-                      <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500 font-medium">Start searching</p>
-                      <p className="text-xs text-gray-400 mt-1">Type to find pins, stickers, neck warmers...</p>
-                      <div className="flex flex-wrap gap-2 mt-3 justify-center">
-                        {['pin', 'sticker', 'neck warmer', 'lamp', 'mat'].map(tag => (
-                          <button
-                            key={tag}
-                            onClick={() => { setSearchQuery(tag); addSearchQuery(tag); }}
-                            className="text-xs bg-gray-100 text-[#6B7280] px-2.5 py-1 rounded-full hover:bg-[#1A5A6B]/10 hover:text-[#1A5A6B] transition-colors"
-                          >
-                            {tag}
+                    )}
+                    {searchQuery.length < 2 && (
+                      <div className="px-3 py-2">
+                        <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wider mb-2">Popular Searches</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['pin', 'sticker', 'neck warmer', 'lamp', 'mat'].map(tag => (
+                            <button key={tag} onClick={() => { setSearchQuery(tag); addSearchQuery(tag); }} className="text-sm bg-gray-100 text-[#6B7280] px-4 py-2 rounded-full hover:bg-[#1A5A6B]/10 hover:text-[#1A5A6B] transition-colors">{tag}</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {searchQuery.length < 2 && searchHistory.length > 0 && (
+                      <>
+                        <div className="px-3 py-2 flex items-center justify-between mt-2">
+                          <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wider">Recent Searches</p>
+                          <button onClick={handleClearHistory} className="text-xs text-[#E85D4E] hover:underline flex items-center gap-1"><Trash2 className="w-3 h-3" /> Clear</button>
+                        </div>
+                        {searchHistory.map((query, i) => (
+                          <button key={`${query}-${i}`} onClick={() => handleHistoryClick(query)} className="w-full flex items-center gap-3 px-3 py-3 hover:bg-gray-50 transition-colors text-left group rounded-xl">
+                            <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="text-sm text-[#1A1A1A] flex-1">{query}</span>
+                            <ArrowUpRight className="w-4 h-4 text-gray-300 group-hover:text-[#1A5A6B] transition-colors" />
                           </button>
                         ))}
+                      </>
+                    )}
+                    {searchQuery.length < 2 && searchHistory.length === 0 && (
+                      <div className="py-8 text-center">
+                        <Search className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500 font-medium">Start searching</p>
+                        <p className="text-xs text-gray-400 mt-1">Type to find pins, stickers, neck warmers...</p>
                       </div>
+                    )}
+                  </div>
+                  {searchResults.length > 0 && (
+                    <div className="p-3 border-t bg-gray-50">
+                      <button onClick={() => { handleSaveAndClose(); navigate('/products'); }} className="w-full text-center text-sm text-[#1A5A6B] font-medium py-2 hover:underline">View all products</button>
                     </div>
                   )}
-                </div>
-
-                {searchResults.length > 0 && (
-                  <div className="p-2 border-t bg-gray-50">
-                    <button
-                      onClick={() => {
-                        handleSaveAndClose();
-                        navigate('/products');
-                      }}
-                      className="w-full text-center text-xs text-[#1A5A6B] font-medium py-1.5 hover:underline"
-                    >
-                      View all products
-                    </button>
-                  </div>
-                )}
               </div>
             )}
+
           </div>
 
           {/* Cart */}
@@ -506,67 +475,141 @@ export function Navbar() {
             </div>
           )}
 
-          {/* Mobile Menu */}
-          <button
-            className="md:hidden p-2 rounded-full hover:bg-gray-100 transition-colors"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Menu"
-          >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
         </div>
       </div>
 
-      {/* Mobile Nav */}
-      {mobileOpen && (
-        <div className={`md:hidden border-t transition-colors ${
-          scrolled
-            ? 'bg-white/80 backdrop-blur-xl border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)]'
-            : 'bg-white border-gray-100'
-        }`}>
-          <nav className="flex flex-col p-4 space-y-3">
-            {/* User profile header — shown at top when logged in */}
-            {isLoggedIn && user && (
-              <div className="flex items-center gap-3 pb-3 border-b">
-                <div className="w-10 h-10 rounded-full bg-[#1A5A6B] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-                  {user.name?.charAt(0) || 'U'}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[#1A1A1A] truncate">{user.name}</p>
-                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                </div>
-              </div>
-            )}
-
-            {navLinks.map((link) => (
-              <Link
-                key={link.label}
-                to={link.href}
-                className="text-base font-medium text-[#1A1A1A] hover:text-[#1A5A6B] py-2"
-                onClick={() => setMobileOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
-            {isLoggedIn && (
-              <div className="pt-3 border-t space-y-2">
-                <Link to="/account" className="flex items-center gap-2 text-sm font-medium text-[#1A1A1A] py-2" onClick={() => setMobileOpen(false)}>
-                  <Package className="w-4 h-4" /> My Account
-                </Link>
-                <Link to="/wishlist" className="flex items-center gap-2 text-sm font-medium text-[#1A1A1A] py-2" onClick={() => setMobileOpen(false)}>
-                  <Heart className="w-4 h-4" /> My Wishlist
-                  {wishlistCount > 0 && (
-                    <span className="ml-auto text-xs bg-[#E8552A] text-white px-1.5 py-0.5 rounded-full font-medium">{wishlistCount}</span>
-                  )}
-                </Link>
-                <button onClick={() => { logout(); setMobileOpen(false); }} className="flex items-center gap-2 text-sm font-medium text-[#E85D4E] py-2 w-full text-left">
-                  <LogOut className="w-4 h-4" /> Sign Out
-                </button>
-              </div>
-            )}
-          </nav>
-        </div>
-      )}
     </header>
+
+    {/* Mobile Slide-in Menu — uses same Sheet component as cart */}
+    <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+      <SheetContent side="right" className="w-full max-w-md bg-white overflow-hidden p-0 flex flex-col">
+        <SheetHeader className="px-5 sm:px-6 pt-5 sm:pt-6 pb-3 border-b flex-shrink-0">
+          <SheetTitle className="font-heading text-lg">Menu</SheetTitle>
+        </SheetHeader>
+        <nav className="flex-1 overflow-y-auto px-5 sm:px-6 py-4 space-y-3">
+          {/* User profile header — shown at top when logged in */}
+          {isLoggedIn && user && (
+            <div className="flex items-center gap-3 pb-3 border-b">
+              <div className="w-10 h-10 rounded-full bg-[#1A5A6B] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+                {user.name?.charAt(0) || 'U'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#1A1A1A] truncate">{user.name}</p>
+                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+              </div>
+            </div>
+          )}
+
+          {navLinks.map((link) => (
+            <Link
+              key={link.label}
+              to={link.href}
+              className="text-base font-medium text-[#1A1A1A] hover:text-[#1A5A6B] py-2 block"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {link.label}
+            </Link>
+          ))}
+          {isLoggedIn && (
+            <div className="pt-3 border-t space-y-2">
+              <Link to="/account" className="flex items-center gap-2 text-sm font-medium text-[#1A1A1A] py-2" onClick={() => setMobileMenuOpen(false)}>
+                <Package className="w-4 h-4" /> My Account
+              </Link>
+              <Link to="/wishlist" className="flex items-center gap-2 text-sm font-medium text-[#1A1A1A] py-2" onClick={() => setMobileMenuOpen(false)}>
+                <Heart className="w-4 h-4" /> My Wishlist
+                {wishlistCount > 0 && (
+                  <span className="ml-auto text-xs bg-[#E8552A] text-white px-1.5 py-0.5 rounded-full font-medium">{wishlistCount}</span>
+                )}
+              </Link>
+              <button onClick={() => { logout(); setMobileMenuOpen(false); }} className="flex items-center gap-2 text-sm font-medium text-[#E85D4E] py-2 w-full text-left">
+                <LogOut className="w-4 h-4" /> Sign Out
+              </button>
+            </div>
+          )}
+        </nav>
+      </SheetContent>
+    </Sheet>
+
+    {/* Mobile Bottom Sheet — outside header to avoid Safari backdrop-filter containing-block bug */}
+    {searchOpen && (
+      <div ref={mobileSearchRef} className="md:hidden">
+        <div
+          className="fixed inset-0 bg-black/40 z-[100]"
+          onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+        />
+        <div
+          className="fixed bottom-0 left-0 right-0 z-[110] bg-white rounded-t-2xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] max-h-[85dvh] flex flex-col"
+        >
+            <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+            <div className="flex items-center justify-between px-4 pb-3">
+              <h3 className="font-heading font-semibold text-lg text-[#1A1A1A]">What are you looking for?</h3>
+              <button onClick={() => { setSearchOpen(false); setSearchQuery(''); }} className="p-1 rounded-full hover:bg-gray-100 transition-colors" aria-label="Close search"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <form onSubmit={handleSearchSubmit} className="px-4 pb-3">
+              <div className="relative">
+                <input ref={searchInputRef} type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products, brands..." className="w-full pl-4 pr-12 py-3 rounded-xl border bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5A6B]/30 focus:border-[#1A5A6B]" />
+                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#1A5A6B] rounded-lg flex items-center justify-center text-white" aria-label="Search"><Search className="w-4 h-4" /></button>
+              </div>
+            </form>
+            <div className="flex-1 overflow-y-auto px-4 pb-6">
+              {searchQuery.length >= 2 && searchResults.length > 0 && (
+                <>
+                  <div className="py-2"><p className="text-xs font-medium text-[#6B7280] uppercase tracking-wider">Results for &ldquo;{searchQuery}&rdquo;</p></div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {searchResults.map(product => (
+                      <button key={product.id} onClick={() => handleResultClick(product.id)} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border border-gray-100">
+                        <img src={product.image} alt={product.name} className="w-14 h-14 object-cover rounded-lg flex-shrink-0 bg-gray-100" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#1A1A1A] truncate">{product.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-[#6B7280]">{product.category}</span>
+                            <span className="text-xs text-[#1A5A6B] font-semibold">${product.price.toFixed(2)}</span>
+                            {product.isPin && <span className="text-[10px] bg-[#E8552A]/10 text-[#E8552A] px-1.5 py-0.5 rounded-full">3/$10</span>}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {searchQuery.length >= 2 && searchResults.length === 0 && (
+                <div className="py-8 text-center"><Search className="w-10 h-10 text-gray-300 mx-auto mb-2" /><p className="text-sm text-gray-500 font-medium">No results found</p><p className="text-xs text-gray-400 mt-1">Try &quot;pin&quot;, &quot;sticker&quot;, or &quot;neck&quot;</p></div>
+              )}
+              {searchQuery.length < 2 && (
+                <div className="py-2">
+                  <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wider mb-2">Popular Searches</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['pin', 'sticker', 'neck warmer', 'lamp', 'mat'].map(tag => (
+                      <button key={tag} onClick={() => { setSearchQuery(tag); addSearchQuery(tag); }} className="text-sm bg-gray-100 text-[#6B7280] px-4 py-2 rounded-full hover:bg-[#1A5A6B]/10 hover:text-[#1A5A6B] transition-colors">{tag}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {searchQuery.length < 2 && searchHistory.length > 0 && (
+                <>
+                  <div className="py-2 flex items-center justify-between mt-2">
+                    <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wider">Recent Searches</p>
+                    <button onClick={handleClearHistory} className="text-xs text-[#E85D4E] hover:underline flex items-center gap-1"><Trash2 className="w-3 h-3" /> Clear</button>
+                  </div>
+                  {searchHistory.map((query, i) => (
+                    <button key={`${query}-${i}`} onClick={() => handleHistoryClick(query)} className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors text-left group rounded-xl">
+                      <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" /><span className="text-sm text-[#1A1A1A] flex-1">{query}</span><ArrowUpRight className="w-4 h-4 text-gray-300 group-hover:text-[#1A5A6B] transition-colors" />
+                    </button>
+                  ))}
+                </>
+              )}
+              {searchQuery.length < 2 && searchHistory.length === 0 && (
+                <div className="py-8 text-center"><Search className="w-10 h-10 text-gray-300 mx-auto mb-2" /><p className="text-sm text-gray-500 font-medium">Start searching</p><p className="text-xs text-gray-400 mt-1">Type to find pins, stickers, neck warmers...</p></div>
+              )}
+            </div>
+            {searchResults.length > 0 && (
+              <div className="p-3 border-t bg-gray-50">
+                <button onClick={() => { handleSaveAndClose(); navigate('/products'); }} className="w-full text-center text-sm text-[#1A5A6B] font-medium py-2 hover:underline">View all products</button>
+              </div>
+            )}
+        </div>
+      </div>
+    )}
+    </>
   );
 }

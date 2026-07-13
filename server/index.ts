@@ -1,25 +1,187 @@
-import express from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import path from 'path';
 import fs from 'fs';
 import db from './db';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const JWT_SECRET = process.env.JWT_SECRET || 'gowild-dev-secret-change-me';
 
-app.use(cors());
-app.use(express.json());
+// --- Security Middleware ---
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+    },
+  },
+}));
+
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true,
+}));
+
+app.use(express.json({ limit: '10kb' }));
+
+// Rate limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10000,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many auth attempts, please try again later.' },
+});
+
+app.use(generalLimiter);
+
+// --- Auth Helpers ---
+
+interface AuthenticatedRequest extends Request {
+  user?: { id: string; email: string; role: string };
+}
+
+function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
+    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
+    req.user = decoded as { id: string; email: string; role: string };
+    next();
+  });
+}
+
+function requireRole(...roles: string[]) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    next();
+  };
+}
+
+function generateToken(user: { id: string; email: string; role: string }) {
+  return jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
+}
+
+function toUserPublic(row: any) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    phone: row.phone ?? undefined,
+    avatar: row.avatar ?? undefined,
+    role: row.role,
+    status: row.status,
+    address: row.address ? JSON.parse(row.address) : undefined,
+    wishlist: row.wishlist ? JSON.parse(row.wishlist) : undefined,
+    createdAt: row.createdAt,
+  };
+}
 
 // --- Health ---
+
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
+// --- Auth Routes ---
+
+app.post('/api/auth/login', authLimiter, (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password required' });
+  }
+
+  const user: any = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  let valid = false;
+  if (user.password && user.password.startsWith('$2')) {
+    // Bcrypt-hashed password
+    valid = bcrypt.compareSync(password, user.password);
+  } else {
+    // Legacy plaintext password fallback
+    valid = user.password === password;
+    // Auto-migrate to hashed password on successful login
+    if (valid) {
+      const hashed = bcrypt.hashSync(password, 12);
+      db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, user.id);
+    }
+  }
+
+  if (!valid) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  const token = generateToken({ id: user.id, email: user.email, role: user.role });
+  res.json({
+    token,
+    user: toUserPublic(user),
+  });
+});
+
+app.post('/api/auth/register', authLimiter, (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Name, email, and password required' });
+  }
+  if (password.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
+
+  const id = `u${Date.now()}`;
+  const hashedPassword = bcrypt.hashSync(password, 12);
+
+  try {
+    db.prepare(`
+      INSERT INTO users (id, name, email, phone, avatar, role, status, address, wishlist, createdAt, password, paymentMethods)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, name, email, null, null, 'customer', 'active', null, null, new Date().toISOString(), hashedPassword, null);
+
+    const user: any = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    const token = generateToken({ id: user.id, email: user.email, role: user.role });
+    res.status(201).json({ token, user: toUserPublic(user) });
+  } catch (e: any) {
+    if (e.message.includes('UNIQUE constraint failed')) {
+      return res.status(409).json({ error: 'Email already exists' });
+    }
+    throw e;
+  }
+});
+
+app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
+  const user: any = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user!.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json(toUserPublic(user));
+});
+
 // --- Products ---
 
-app.get('/api/products', (_req, res) => {
-  const rows = db.prepare('SELECT * FROM products').all();
-  const products = rows.map((row: any) => ({
+function parseProduct(row: any) {
+  return {
     ...row,
     images: row.images ? JSON.parse(row.images) : undefined,
     colorImages: row.colorImages ? JSON.parse(row.colorImages) : undefined,
@@ -30,28 +192,21 @@ app.get('/api/products', (_req, res) => {
     isPin: row.isPin === 1,
     isBestSeller: row.isBestSeller === 1,
     originalPrice: row.originalPrice ?? undefined,
-  }));
-  res.json(products);
+  };
+}
+
+app.get('/api/products', (_req, res) => {
+  const rows = db.prepare('SELECT * FROM products').all();
+  res.json(rows.map(parseProduct));
 });
 
 app.get('/api/products/:id', (req, res) => {
   const row: any = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Product not found' });
-  res.json({
-    ...row,
-    images: row.images ? JSON.parse(row.images) : undefined,
-    colorImages: row.colorImages ? JSON.parse(row.colorImages) : undefined,
-    colors: row.colors ? JSON.parse(row.colors) : undefined,
-    sizes: row.sizes ? JSON.parse(row.sizes) : undefined,
-    specs: row.specs ? JSON.parse(row.specs) : undefined,
-    isBundle: row.isBundle === 1,
-    isPin: row.isPin === 1,
-    isBestSeller: row.isBestSeller === 1,
-    originalPrice: row.originalPrice ?? undefined,
-  });
+  res.json(parseProduct(row));
 });
 
-app.post('/api/products', (req, res) => {
+app.post('/api/products', authenticateToken, requireRole('admin', 'staff'), (req: AuthenticatedRequest, res) => {
   const p = req.body;
   const id = p.id || `p${Date.now()}`;
   db.prepare(`
@@ -72,7 +227,7 @@ app.post('/api/products', (req, res) => {
   res.status(201).json({ id });
 });
 
-app.put('/api/products/:id', (req, res) => {
+app.put('/api/products/:id', authenticateToken, requireRole('admin', 'staff'), (req: AuthenticatedRequest, res) => {
   const p = req.body;
   const fields: string[] = [];
   const values: any[] = [];
@@ -103,14 +258,14 @@ app.put('/api/products/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/products/:id', (req, res) => {
+app.delete('/api/products/:id', authenticateToken, requireRole('admin'), (req: AuthenticatedRequest, res) => {
   db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
 // --- Orders ---
 
-app.get('/api/orders', (_req, res) => {
+app.get('/api/orders', authenticateToken, requireRole('admin', 'staff'), (_req, res) => {
   const orders: any[] = db.prepare('SELECT * FROM orders ORDER BY createdAt DESC').all();
   for (const order of orders) {
     order.items = db.prepare('SELECT * FROM order_items WHERE orderId = ?').all(order.id);
@@ -138,13 +293,13 @@ app.post('/api/orders', (req, res) => {
   res.status(201).json({ id });
 });
 
-app.put('/api/orders/:id/status', (req, res) => {
+app.put('/api/orders/:id/status', authenticateToken, requireRole('admin', 'staff'), (req: AuthenticatedRequest, res) => {
   const { status } = req.body;
   db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, req.params.id);
   res.json({ ok: true });
 });
 
-app.delete('/api/orders/:id', (req, res) => {
+app.delete('/api/orders/:id', authenticateToken, requireRole('admin'), (req: AuthenticatedRequest, res) => {
   db.prepare('DELETE FROM orders WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
@@ -171,25 +326,25 @@ app.post('/api/reviews', (req, res) => {
   res.status(201).json({ id });
 });
 
-app.put('/api/reviews/:id/approve', (req, res) => {
+app.put('/api/reviews/:id/approve', authenticateToken, requireRole('admin', 'staff'), (req: AuthenticatedRequest, res) => {
   db.prepare('UPDATE reviews SET approved = 1 WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
-app.put('/api/reviews/:id', (req, res) => {
+app.put('/api/reviews/:id', authenticateToken, (req: AuthenticatedRequest, res) => {
   const r = req.body;
   db.prepare('UPDATE reviews SET text = ?, rating = ? WHERE id = ?').run(r.text, r.rating, req.params.id);
   res.json({ ok: true });
 });
 
-app.delete('/api/reviews/:id', (req, res) => {
+app.delete('/api/reviews/:id', authenticateToken, requireRole('admin'), (req: AuthenticatedRequest, res) => {
   db.prepare('DELETE FROM reviews WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
 // --- Users ---
 
-app.get('/api/users', (_req, res) => {
+app.get('/api/users', authenticateToken, requireRole('admin', 'staff'), (_req, res) => {
   const rows = db.prepare('SELECT id, name, email, phone, avatar, role, status, address, wishlist, createdAt FROM users').all();
   res.json(rows.map((u: any) => ({
     ...u,
@@ -198,7 +353,10 @@ app.get('/api/users', (_req, res) => {
   })));
 });
 
-app.get('/api/users/:id', (req, res) => {
+app.get('/api/users/:id', authenticateToken, (req: AuthenticatedRequest, res) => {
+  if (req.user!.id !== req.params.id && req.user!.role !== 'admin' && req.user!.role !== 'staff') {
+    return res.status(403).json({ error: 'Cannot view another user\'s profile' });
+  }
   const u: any = db.prepare('SELECT id, name, email, phone, avatar, role, status, address, wishlist, createdAt FROM users WHERE id = ?').get(req.params.id);
   if (!u) return res.status(404).json({ error: 'User not found' });
   res.json({
@@ -208,14 +366,16 @@ app.get('/api/users/:id', (req, res) => {
   });
 });
 
-app.post('/api/users', (req, res) => {
+app.post('/api/users', authenticateToken, requireRole('admin'), (req: AuthenticatedRequest, res) => {
   const u = req.body;
   const id = u.id || `u${Date.now()}`;
+  const hashedPassword = u.password ? bcrypt.hashSync(u.password, 12) : null;
+
   try {
     db.prepare(`
       INSERT INTO users (id, name, email, phone, avatar, role, status, address, wishlist, createdAt, password, paymentMethods)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, u.name, u.email, u.phone ?? null, u.avatar ?? null, u.role ?? 'customer', u.status ?? 'active', u.address ? JSON.stringify(u.address) : null, u.wishlist ? JSON.stringify(u.wishlist) : null, u.createdAt ?? new Date().toISOString(), u.password ?? null, u.paymentMethods ? JSON.stringify(u.paymentMethods) : null);
+    `).run(id, u.name, u.email, u.phone ?? null, u.avatar ?? null, u.role ?? 'customer', u.status ?? 'active', u.address ? JSON.stringify(u.address) : null, u.wishlist ? JSON.stringify(u.wishlist) : null, u.createdAt ?? new Date().toISOString(), hashedPassword, u.paymentMethods ? JSON.stringify(u.paymentMethods) : null);
     res.status(201).json({ id });
   } catch (e: any) {
     if (e.message.includes('UNIQUE constraint failed')) {
@@ -225,14 +385,28 @@ app.post('/api/users', (req, res) => {
   }
 });
 
-app.put('/api/users/:id', (req, res) => {
+app.put('/api/users/:id', authenticateToken, (req: AuthenticatedRequest, res) => {
+  // Users can only update themselves unless they're admin
+  if (req.user!.id !== req.params.id && req.user!.role !== 'admin') {
+    return res.status(403).json({ error: 'Cannot update another user\'s profile' });
+  }
+
   const u = req.body;
   const fields: string[] = [];
   const values: any[] = [];
 
-  const simple = ['name', 'email', 'phone', 'avatar', 'role', 'status', 'password'];
-  for (const key of simple) {
+  const selfUpdatable = ['name', 'email', 'phone', 'avatar'];
+  const adminUpdatable = ['role', 'status'];
+
+  for (const key of selfUpdatable) {
     if (u[key] !== undefined) { fields.push(`${key} = ?`); values.push(u[key]); }
+  }
+  for (const key of adminUpdatable) {
+    if (u[key] !== undefined && req.user!.role === 'admin') { fields.push(`${key} = ?`); values.push(u[key]); }
+  }
+  if (u.password !== undefined) {
+    fields.push('password = ?');
+    values.push(bcrypt.hashSync(u.password, 12));
   }
   if (u.address !== undefined) { fields.push('address = ?'); values.push(JSON.stringify(u.address)); }
   if (u.wishlist !== undefined) { fields.push('wishlist = ?'); values.push(JSON.stringify(u.wishlist)); }
@@ -245,6 +419,30 @@ app.put('/api/users/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+app.put('/api/users/:id/password', authenticateToken, (req: AuthenticatedRequest, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!newPassword || newPassword.length < 4) {
+    return res.status(400).json({ error: 'New password must be at least 4 characters' });
+  }
+
+  const user: any = db.prepare('SELECT password FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  // Only require current password if updating own account
+  if (req.user!.id !== req.params.id && req.user!.role !== 'admin') {
+    return res.status(403).json({ error: 'Cannot change another user\'s password' });
+  }
+
+  if (req.user!.id === req.params.id) {
+    const valid = bcrypt.compareSync(currentPassword, user.password);
+    if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+  }
+
+  const hashed = bcrypt.hashSync(newPassword, 12);
+  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, req.params.id);
+  res.json({ ok: true });
+});
+
 // --- Settings ---
 
 app.get('/api/settings', (_req, res) => {
@@ -253,7 +451,7 @@ app.get('/api/settings', (_req, res) => {
   res.json(JSON.parse(row.data));
 });
 
-app.put('/api/settings', (req, res) => {
+app.put('/api/settings', authenticateToken, requireRole('admin'), (req: AuthenticatedRequest, res) => {
   const data = JSON.stringify(req.body);
   const existing: any = db.prepare('SELECT id FROM settings WHERE id = 1').get();
   if (existing) {
@@ -279,6 +477,13 @@ if (fs.existsSync(distPath)) {
     res.json({ message: 'GoWild API Server', status: 'dist folder not found — run npm run build' });
   });
 }
+
+// --- Error Handler ---
+
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[server] error:', err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+});
 
 // --- Start ---
 

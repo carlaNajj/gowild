@@ -1,8 +1,9 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
 
-const DB_DIR = process.env.DB_DIR || '/data';
+const DB_DIR = process.env.DB_DIR || './data';
 const DB_PATH = path.join(DB_DIR, 'gowild.db');
 
 // Ensure DB directory exists
@@ -175,11 +176,18 @@ const DEFAULT_REVIEWS = [
   { id: 'r18', productId: 'p8', productName: 'Mountain Buck Pin', userName: 'ArtLover', date: '2026-04-18', rating: 5, text: 'The antler detail is incredible. You can see the tiny mountain motifs. Best quality pin I have ever purchased.', approved: 0 },
 ];
 
-const DEMO_USERS = [
+const SALT_ROUNDS = 10;
+
+const DEMO_USERS_RAW = [
   { id: 'u1', name: 'Alex Walker', email: 'alex@gowild.com', phone: '(555) 867-5309', role: 'customer', status: 'active', wishlist: JSON.stringify(['p14', 'n5', 's3']), address: JSON.stringify({ street: '123 Mountain Ridge Road', city: 'Boulder', state: 'CO', zip: '80301', country: 'USA' }), createdAt: '2026-01-01', password: 'demo1234', paymentMethods: JSON.stringify(['Visa •••• 4242']) },
   { id: 'admin1', name: 'Admin User', email: 'admin@gowild.com', phone: '(555) 000-0000', role: 'admin', status: 'active', address: JSON.stringify({ street: '456 Admin Blvd', city: 'Denver', state: 'CO', zip: '80201', country: 'USA' }), createdAt: '2026-01-01', password: 'admin1234', paymentMethods: JSON.stringify([]) },
   { id: 'staff1', name: 'Staff Member', email: 'staff@gowild.com', phone: '(555) 111-1111', role: 'staff', status: 'active', address: JSON.stringify({ street: '789 Staff Ave', city: 'Denver', state: 'CO', zip: '80202', country: 'USA' }), createdAt: '2026-01-01', password: 'staff1234', paymentMethods: JSON.stringify([]) },
 ];
+
+const DEMO_USERS = DEMO_USERS_RAW.map(u => ({
+  ...u,
+  password: bcrypt.hashSync(u.password, SALT_ROUNDS),
+}));
 
 // --- Seed if empty ---
 

@@ -6,6 +6,9 @@ import { StoreProvider } from '@/store';
 import { SettingsProvider } from '@/lib/settings-context';
 import { Navbar } from '@/sections/Navbar';
 import { Footer } from '@/sections/Footer';
+import { FloatingActions } from '@/components/FloatingActions';
+import { MobileNavProvider } from '@/lib/mobile-nav-context';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { HomePage } from '@/pages/HomePage';
 import { ProductsPage } from '@/pages/ProductsPage';
 import { ProductPage } from '@/pages/ProductPage';
@@ -44,6 +47,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       {!isAdmin && <Footer />}
+      {!isAdmin && <FloatingActions />}
       <Toaster position="top-right" richColors />
     </div>
   );
@@ -54,29 +58,32 @@ export default function App() {
     <AuthProvider>
       <SettingsProvider>
         <StoreProvider>
-          <Layout>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/product/:id" element={<ProductPage />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/confirmation" element={<ConfirmationPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/account" element={<MyAccountPage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/deals" element={<DealsPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/wishlist" element={<WishlistPage />} />
-            <Route path="/pins-bundle" element={<PinsBundlePage />} />
-            <Route path="/admin/login" element={<AdminLoginPage />} />
-            <Route path="/admin" element={
-              <AdminGuard>
-                <AdminPage />
-              </AdminGuard>
-            } />
-          </Routes>
-          </Layout>
+          <MobileNavProvider>
+            <Layout>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/product/:id" element={<ProductPage />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/confirmation" element={<ConfirmationPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/account" element={<MyAccountPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/deals" element={<DealsPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/wishlist" element={<WishlistPage />} />
+              <Route path="/pins-bundle" element={<PinsBundlePage />} />
+              <Route path="/admin/login" element={<AdminLoginPage />} />
+              <Route path="/admin" element={
+                <AdminGuard>
+                  <AdminPage />
+                </AdminGuard>
+              } />
+            </Routes>
+            </Layout>
+            <MobileBottomNav />
+          </MobileNavProvider>
         </StoreProvider>
       </SettingsProvider>
     </AuthProvider>

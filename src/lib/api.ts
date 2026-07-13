@@ -7,10 +7,28 @@ import type { User } from '@/auth';
 import type { SiteSettings } from '@/lib/settings-context';
 
 const API_BASE = '/api';
+const TOKEN_KEY = 'gowild_token';
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string | null) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 async function fetchJson<T>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
     ...opts,
   });
   if (!res.ok) {
@@ -18,6 +36,31 @@ async function fetchJson<T>(path: string, opts?: RequestInit): Promise<T> {
     throw new Error(`${res.status}: ${text}`);
   }
   return res.json() as Promise<T>;
+}
+
+/* ---- Auth ---- */
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+export async function login(email: string, password: string): Promise<AuthResponse> {
+  return fetchJson<AuthResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function register(name: string, email: string, password: string): Promise<AuthResponse> {
+  return fetchJson<AuthResponse>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ name, email, password }),
+  });
+}
+
+export async function getMe(): Promise<User> {
+  return fetchJson<User>('/auth/me');
 }
 
 /* ---- Products ---- */
@@ -111,12 +154,19 @@ export async function getUser(id: string): Promise<User> {
   return fetchJson<User>(`/users/${id}`);
 }
 
-export async function createUser(user: Omit<User, 'id'> & { id?: string }): Promise<{ id: string }> {
+export async function createUser(user: Omit<User, 'id'> & { id?: string; password?: string }): Promise<{ id: string }> {
   return fetchJson<{ id: string }>('/users', { method: 'POST', body: JSON.stringify(user) });
 }
 
-export async function updateUser(id: string, updates: Partial<User>): Promise<void> {
+export async function updateUser(id: string, updates: Partial<User> & { password?: string }): Promise<void> {
   await fetchJson(`/users/${id}`, { method: 'PUT', body: JSON.stringify(updates) });
+}
+
+export async function updateUserPassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
+  await fetchJson(`/users/${id}/password`, {
+    method: 'PUT',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
 }
 
 /* ---- Settings ---- */

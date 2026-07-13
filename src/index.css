@@ -5,6 +5,11 @@
 @tailwind utilities;
 
 @layer base {
+  /* Hide scrollbar for carousel components */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   :root {
     --background: 40 33% 95%;
     --foreground: 0 0% 10%;

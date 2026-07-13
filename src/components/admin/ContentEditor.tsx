@@ -48,7 +48,10 @@ export function ContentEditor({ onNavigateToPromotions }: { onNavigateToPromotio
     <div className="space-y-6 max-w-4xl">
       <SectionTitleEditor title="Hero Section" value={{ title: settings.heroTitle, subtitle: settings.heroSubtitle }} onChange={v => { updateSettings({ heroTitle: v.title, heroSubtitle: v.subtitle }); }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <TextField label="Tagline" value={settings.heroTagline} onChange={v => updateSettings({ heroTagline: v })} />
+          <div>
+            <TextField label="Tagline" value={settings.heroTagline} onChange={v => updateSettings({ heroTagline: v })} />
+            <p className="text-xs text-amber-600 mt-1">Note: Tagline is only displayed on desktop screens (hidden on mobile).</p>
+          </div>
           <TextField label="CTA Primary" value={settings.heroCtaPrimary} onChange={v => updateSettings({ heroCtaPrimary: v })} />
           <TextField label="CTA Secondary" value={settings.heroCtaSecondary} onChange={v => updateSettings({ heroCtaSecondary: v })} />
           <ImageUploader label="Hero Image" value={settings.heroImage} onChange={v => updateSettings({ heroImage: v })} />

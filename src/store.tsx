@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { useSiteSettings } from '@/lib/settings-context';
 import * as api from '@/lib/api';
+import { usePolling } from '@/hooks/usePolling';
 
 export interface Review {
   id: string;
@@ -269,12 +270,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Load data from API on mount
   useEffect(() => {
+    const token = api.getToken();
     Promise.all([
       api.getProducts().then(setProducts).catch(() => setProducts([...ALL_PRODUCTS])),
-      api.getOrders().then(setOrders).catch(() => {}),
+      token ? api.getOrders().then(setOrders).catch(() => {}) : Promise.resolve(),
       api.getReviews().then(setReviews).catch(() => setReviews([...DEFAULT_REVIEWS])),
     ]).finally(() => setLoaded(true));
   }, []);
+
+  // Poll for live updates (admin changes)
+  usePolling(() => {
+    const token = api.getToken();
+    api.getProducts().then(setProducts).catch(() => {});
+    if (token) api.getOrders().then(setOrders).catch(() => {});
+    api.getReviews().then(setReviews).catch(() => {});
+  }, 3000);
 
   useEffect(() => { saveCart(cart); }, [cart]);
   useEffect(() => { saveWishlist(wishlist); }, [wishlist]);
